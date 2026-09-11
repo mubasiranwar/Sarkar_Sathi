@@ -364,11 +364,30 @@ export function createChatHandler() {
     const client = new OpenAI({ apiKey, baseURL: baseUrl });
     
     const hasUrduScript = /[\u0600-\u06FF]/.test(query);
-    const romanUrduPattern = /\b(mujhe|aap|apka|hai|hain|madad|chahiye|kaise|kya|mera|meri|ke liye|batayein|program)\b/i;
-    const isUrduConversation = language === 'urdu' || hasUrduScript || romanUrduPattern.test(query);
-    const languageInstruction = isUrduConversation
-      ? '\n\nCRITICAL LANGUAGE RULE: Respond entirely in natural, polite, fluent Urdu using Urdu script (اردو رسم الخط). Do not use English or Roman Urdu for the answer, follow-up question, program explanations, eligibility criteria, or instructions. Translate supporting text while preserving official program names where useful.'
-      : '\n\nCRITICAL LANGUAGE RULE: Respond entirely in clear, natural English because the active session and latest user query are English.';
+    const romanUrduPattern = /\b(mujhe|aap|apka|apni|hai|hain|madad|chahiye|kaise|kya|mera|meri|mere|ke liye|batayein|program|bachay|bache)\b/i;
+    const isRomanUrdu = !hasUrduScript && romanUrduPattern.test(query);
+    const isUrduScript = language === 'ur' || language === 'urdu' || hasUrduScript;
+    const languageInstruction = isUrduScript
+      ? `
+
+CRITICAL LANGUAGE ENFORCEMENT RULE:
+1. Detect the language of the user's message and check the session language parameter.
+2. The user is conversing in Urdu because the message contains Urdu script or the active session language is 'ur'/'urdu'.
+3. You MUST reply ENTIRELY in fluent, polite, and natural Urdu using Urdu script (اردو رسم الخط).
+4. NEVER reply in English, even partially. Translate all program names, eligibility criteria, required documents, and next steps into natural Urdu, while preserving official names where necessary.
+5. Never revert to English when the conversation context or query is in Urdu.`
+      : isRomanUrdu
+      ? `
+
+CRITICAL LANGUAGE ENFORCEMENT RULE:
+1. The user's latest message is Roman Urdu.
+2. Reply entirely in clear, natural, polite Roman Urdu using Latin script.
+3. Do not switch to English or Urdu script. Keep program names and official URLs unchanged where necessary.`
+      : `
+
+CRITICAL LANGUAGE ENFORCEMENT RULE:
+1. The user's latest message and active session are English.
+2. Reply entirely in clear, natural English.`;
     
     const systemMessage = `${SYSTEM_PROMPT}${languageInstruction}\n\n=== CURRENT USER PROFILE ===\n${JSON.stringify(profile, null, 2)}\n=== END PROFILE ===\n\n=== VERIFIED PROGRAM DATA ===\n${programContext}\n=== END PROGRAMS ===\n\nUse ONLY the programs listed above. Reference them by their ID.`;
     
