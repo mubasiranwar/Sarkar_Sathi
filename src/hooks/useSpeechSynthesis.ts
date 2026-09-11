@@ -10,9 +10,8 @@ function cleanSpeechText(text: string): string {
   return text
     .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1')
     .replace(/https?:\/\/\S+/g, '')
+    .replace(/[`*_#~>]/g, '')
     .replace(/^\s*[-•]\s+/gm, '')
-    .replace(/^\s*#+\s+/gm, '')
-    .replace(/[*_]/g, '')
     .replace(/---/g, '')
     .replace(/\s{2,}/g, ' ')
     .replace(/\n+/g, '. ')
@@ -37,9 +36,14 @@ export function useSpeechSynthesis() {
     if (typeof window === 'undefined' || !window.speechSynthesis || !text.trim()) return;
 
     window.speechSynthesis.cancel();
+    const availableVoices = window.speechSynthesis.getVoices();
+    const currentVoices = availableVoices.length > 0 ? availableVoices : voices;
     const utterance = new SpeechSynthesisUtterance(cleanSpeechText(text));
     const preferredPrefix = language === 'urdu' || language === 'roman_urdu' ? 'ur' : 'en';
-    const preferredVoice = voices.find(voice => voice.lang.toLowerCase().startsWith(preferredPrefix));
+    const preferredVoice = language === 'urdu'
+      ? currentVoices.find(voice => voice.lang.toLowerCase().startsWith('ur') || voice.lang.toLowerCase().includes('pk'))
+      : currentVoices.find(voice => voice.lang.toLowerCase() === 'en-us' && voice.name.toLowerCase().includes('natural'))
+        || currentVoices.find(voice => voice.lang.toLowerCase().startsWith(preferredPrefix));
     utterance.voice = preferredVoice || null;
     utterance.lang = preferredVoice?.lang || languageCode(language);
     utterance.rate = 0.95;

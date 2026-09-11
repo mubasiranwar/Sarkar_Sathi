@@ -307,7 +307,7 @@ const CRITICAL_LANGUAGE_DIRECTIVE = `CRITICAL DIRECTIVE - LANGUAGE ENFORCEMENT:
 
 const URDU_MODEL_CONFIG = {
   model: process.env.QWEN_URDU_MODEL || process.env.QWEN_MODEL || 'Qwen/Qwen3-Max',
-  temperature: 0.35,
+  temperature: 0.3,
   systemPrompt: `${SYSTEM_PROMPT}
 
 آپ پاکستان کے سرکاری معلوماتی اسسٹنٹ "سرکار ساتھی" ہیں۔
@@ -319,7 +319,7 @@ const URDU_MODEL_CONFIG = {
 
 const ENGLISH_MODEL_CONFIG = {
   model: process.env.QWEN_MODEL || 'Qwen/Qwen3-Max',
-  temperature: 0.5,
+  temperature: 0.6,
   systemPrompt: SYSTEM_PROMPT,
 };
 
@@ -451,6 +451,7 @@ CRITICAL LANGUAGE ENFORCEMENT RULE:
         const parsed = JSON.parse(jsonMatch[0]);
         return {
           answer: parsed.answer || responseContent,
+          detectedLanguage: isUrduScript ? 'urdu' : isRomanUrdu ? 'roman_urdu' : 'english',
           profileUpdates: parsed.profileUpdates || {},
           intent: parsed.intent,
           followUpQuestion: parsed.followUpQuestion || null,
@@ -467,6 +468,7 @@ CRITICAL LANGUAGE ENFORCEMENT RULE:
     
     return {
       answer: responseContent,
+      detectedLanguage: isUrduScript ? 'urdu' : isRomanUrdu ? 'roman_urdu' : 'english',
       profileUpdates: {},
       intent: 'general_question',
       recommendedPrograms: [],
