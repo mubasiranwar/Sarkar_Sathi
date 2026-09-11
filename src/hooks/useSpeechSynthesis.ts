@@ -26,6 +26,10 @@ export function prepareUrduSpeechText(text: string): string {
     .replace(/\bPKR\b/gi, 'روپے')
     .replace(/\bSMS\b/gi, 'میسج')
     .replace(/\bQwen\b/gi, 'قوین')
+    .replace(/\bEhsaas\b/gi, 'احساس')
+    .replace(/\bStatus\b/gi, 'حیثیت')
+    .replace(/\bProgram(?:s)?\b/gi, 'پروگرامز')
+    .replace(/\bOfficial\b/gi, 'سرکاری')
     .trim();
 }
 
@@ -35,16 +39,18 @@ function splitSpeechText(text: string, maxLength = 180): string[] {
   let current = '';
 
   sentences.forEach(sentence => {
-    if ((current + ' ' + sentence).trim().length <= maxLength) {
-      current = `${current} ${sentence}`.trim();
-    } else {
-      if (current) chunks.push(current);
-      current = sentence;
-    }
+    sentence.split(/\s+/).filter(Boolean).forEach(word => {
+      if ((current + ' ' + word).trim().length <= maxLength) {
+        current = `${current} ${word}`.trim();
+      } else {
+        if (current) chunks.push(current);
+        current = word;
+      }
+    });
   });
 
   if (current) chunks.push(current);
-  return chunks.length > 0 ? chunks : [text.slice(0, maxLength)];
+  return chunks.length > 0 ? chunks : [text];
 }
 
 export function useSpeechSynthesis() {
@@ -74,7 +80,7 @@ export function useSpeechSynthesis() {
     }
   }, []);
 
-  const speak = useCallback((text: string, language: SpeechLanguage) => {
+  const speak = useCallback((text: string, language: SpeechLanguage, onComplete?: () => void) => {
     if (typeof window === 'undefined' || !text.trim()) return;
 
     window.speechSynthesis?.cancel();
@@ -84,7 +90,7 @@ export function useSpeechSynthesis() {
     const preparedText = language === 'urdu' ? prepareUrduSpeechText(text) : cleanSpeechText(text);
     const preferredPrefix = language === 'roman_urdu' ? 'en' : language === 'urdu' ? 'ur' : 'en';
     const preferredVoice = language === 'urdu'
-      ? currentVoices.find(voice => /^(ur|ar|pa)([-_]|$)/i.test(voice.lang))
+      ? currentVoices.find(voice => /^ur([-_]|$)/i.test(voice.lang))
       : currentVoices.find(voice => voice.lang.toLowerCase() === 'en-us' && voice.name.toLowerCase().includes('natural'))
         || currentVoices.find(voice => voice.lang.toLowerCase().startsWith(preferredPrefix));
 
@@ -101,23 +107,28 @@ export function useSpeechSynthesis() {
           if (token === audioTokenRef.current) {
             setIsSpeaking(false);
             setIsPaused(false);
+            onComplete?.();
           }
           return;
         }
 
         const audio = new Audio(audioQueueRef.current.shift());
+        audio.preload = 'auto';
+        audio.volume = 1;
         audioRef.current = audio;
         audio.onended = playNextChunk;
         audio.onerror = () => {
           if (token === audioTokenRef.current) {
             setIsSpeaking(false);
             setIsPaused(false);
+            onComplete?.();
           }
         };
         audio.play().catch(() => {
           if (token === audioTokenRef.current) {
             setIsSpeaking(false);
             setIsPaused(false);
+            onComplete?.();
           }
         });
       };
@@ -139,10 +150,12 @@ export function useSpeechSynthesis() {
     utterance.onend = () => {
       setIsSpeaking(false);
       setIsPaused(false);
+      onComplete?.();
     };
     utterance.onerror = () => {
       setIsSpeaking(false);
       setIsPaused(false);
+      onComplete?.();
     };
     window.speechSynthesis.speak(utterance);
   }, [voices, stopAudio]);

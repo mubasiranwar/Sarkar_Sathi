@@ -116,6 +116,8 @@ export default function AssistantPage() {
   const voiceInputPrefixRef = useRef('');
   const isListeningRef = useRef(false);
   const manualStopRef = useRef(false);
+  const voiceTurnSubmittingRef = useRef(false);
+  const voiceSilenceTimerRef = useRef<number | null>(null);
   const { isSpeaking, isPaused, speak, pause, resume, stop } = useSpeechSynthesis();
   const loadingMessages = [1, 2, 3, 4].map(index => t(`assistant.loading.${index}`, language));
 
@@ -220,7 +222,14 @@ export default function AssistantPage() {
         
         setMessages(prev => [...prev, assistantMsg]);
         setVoiceAssistantCaption(responseContent);
-        if (isVoiceModeOpen && !isVoiceMuted) speak(responseContent, currentLang);
+        if (isVoiceModeOpen && !isVoiceMuted) {
+          speak(responseContent, currentLang, () => {
+            if (isVoiceModeOpen && !manualStopRef.current && !isLoading) startRecognition(voiceLanguage);
+          });
+        } else if (isVoiceModeOpen && !manualStopRef.current) {
+          setIsLoading(false);
+          startRecognition(voiceLanguage);
+        }
         setIsLoading(false);
         return;
         }
@@ -331,7 +340,13 @@ export default function AssistantPage() {
     
     setMessages(prev => [...prev, assistantMsg]);
     setVoiceAssistantCaption(responseContent);
-    if (isVoiceModeOpen && !isVoiceMuted) speak(responseContent, currentLang);
+    if (isVoiceModeOpen && !isVoiceMuted) {
+      speak(responseContent, currentLang, () => {
+        if (isVoiceModeOpen && !manualStopRef.current && !isLoading) startRecognition(voiceLanguage);
+      });
+    } else if (isVoiceModeOpen && !manualStopRef.current) {
+      startRecognition(voiceLanguage);
+    }
     setIsLoading(false);
   };
 
@@ -348,6 +363,7 @@ export default function AssistantPage() {
     setVoiceUserCaption('');
     voiceInputPrefixRef.current = input.trim();
     manualStopRef.current = false;
+    voiceTurnSubmittingRef.current = false;
     isListeningRef.current = true;
 
     const recognition = new SpeechRecognitionAPI();
@@ -361,6 +377,10 @@ export default function AssistantPage() {
       setIsListening(true);
     };
     recognition.onresult = (event) => {
+      if (voiceSilenceTimerRef.current) {
+        window.clearTimeout(voiceSilenceTimerRef.current);
+        voiceSilenceTimerRef.current = null;
+      }
       let finalTranscript = '';
       let interimTranscript = '';
       for (let index = event.resultIndex; index < event.results.length; index += 1) {
@@ -376,6 +396,13 @@ export default function AssistantPage() {
       const liveTranscript = `${voiceTranscriptRef.current} ${interimTranscript}`.trim();
       setInput([voiceInputPrefixRef.current, liveTranscript].filter(Boolean).join(' '));
       setVoiceUserCaption(liveTranscript);
+
+      if (isVoiceModeOpen && finalTranscript.trim()) {
+        if (voiceSilenceTimerRef.current) window.clearTimeout(voiceSilenceTimerRef.current);
+        voiceSilenceTimerRef.current = window.setTimeout(() => {
+          recognition.stop();
+        }, 1400);
+      }
     };
     recognition.onerror = (event) => {
       if (event.error === 'not-allowed' || event.error === 'service-not-allowed' || event.error === 'audio-capture') {
@@ -386,6 +413,21 @@ export default function AssistantPage() {
       }
     };
     recognition.onend = () => {
+      if (voiceSilenceTimerRef.current) {
+        window.clearTimeout(voiceSilenceTimerRef.current);
+        voiceSilenceTimerRef.current = null;
+      }
+
+      const completedTranscript = voiceTranscriptRef.current.trim();
+      if (isVoiceModeOpen && completedTranscript && !voiceTurnSubmittingRef.current && !manualStopRef.current) {
+        voiceTurnSubmittingRef.current = true;
+        isListeningRef.current = false;
+        setIsListening(false);
+        recognitionRef.current = null;
+        handleSend(completedTranscript);
+        return;
+      }
+
       if (!manualStopRef.current && isListeningRef.current) {
         try {
           recognition.start();
@@ -415,7 +457,7 @@ export default function AssistantPage() {
       isListeningRef.current = false;
       recognitionRef.current?.stop();
       setIsListening(false);
-      if (isVoiceModeOpen && input.trim()) handleSend();
+      if (isVoiceModeOpen && input.trim() && !voiceTurnSubmittingRef.current) handleSend(input.trim());
       return;
     }
     startRecognition();
@@ -426,6 +468,7 @@ export default function AssistantPage() {
       manualStopRef.current = true;
       isListeningRef.current = false;
       recognitionRef.current?.stop();
+      if (voiceSilenceTimerRef.current) window.clearTimeout(voiceSilenceTimerRef.current);
       stop();
       setIsListening(false);
       setIsVoiceModeOpen(false);
@@ -457,6 +500,7 @@ export default function AssistantPage() {
         recognitionRef.current.onend = null;
         recognitionRef.current.abort();
       }
+      if (voiceSilenceTimerRef.current) window.clearTimeout(voiceSilenceTimerRef.current);
       stop();
     };
   }, [stop]);
