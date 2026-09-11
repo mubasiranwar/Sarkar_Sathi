@@ -75,11 +75,11 @@ interface Message {
 }
 
 const welcomeMessage = (language: 'en' | 'ur') => language === 'ur'
-  ? "السلام علیکم! سرکار ساتھی میں خوش آمدید۔\n\nمیں آپ کو ان سرکاری پروگرامز کی تلاش میں مدد دوں گا جن کے لیے آپ اہل ہو سکتے ہیں۔\n\n💬 **آپ مجھ سے بات کر سکتے ہیں:**\n• اردو\n• English\n• رومن اردو\n\nاپنے بارے میں بتائیں:\n• آپ کے خاندان میں کتنے افراد ہیں؟\n• آپ کی ماہانہ آمدن کتنی ہے؟\n• آپ کیا کام کرتے ہیں؟\n• آپ کو کس قسم کی مدد درکار ہے؟"
+  ? "السلام علیکم! سرکار ساتھی میں خوش آمدید۔\n\nمیں آپ کو ان حکومتی پروگراموں کو تلاش کرنے میں مدد کروں گا جن کے آپ اہل ہو سکتے ہیں۔\n\n💬 **آپ مجھ سے گفتگو کر سکتے ہیں:**\n• اردو میں\n• رومن اردو میں\n• انگلش میں\n\nآئیے شروع کرتے ہیں - اپنے بارے میں بتائیں:\n• آپ کے خاندان کے کتنے افراد ہیں؟\n• آپ کی ماہانہ آمدن کتنی ہے؟\n• آپ کیا کام کرتے ہیں؟\n• آپ کو کس قسم کی حکومتی معاونت چاہیے؟"
   : "Assalam o Alaikum! Welcome to Sarkar Sathi.\n\nI'm here to help you find government programs you may be eligible for.\n\n💬 **You can chat with me in:**\n• English\n• Urdu (اردو)\n• Roman Urdu (e.g., \"mujhe madad chahiye\")\n\nI'll respond in the same language you use!\n\nLet's start - tell me about yourself:\n• How many family members do you have?\n• What is your monthly income?\n• What do you do for work?\n• What kind of support are you looking for?";
 
 const welcomeSuggestions = (language: 'en' | 'ur') => language === 'ur'
-  ? ['میرے 3 بچے ہیں اور آمدن 25,000 ہے', 'میں 5 ایکڑ والا کسان ہوں', 'مجھے صحت کی مدد چاہیے', 'میرے خاندان کے لیے مالی مدد چاہیے']
+  ? ['میرے 3 بچے ہیں اور آمدن 25,000 ہے', 'میں کسان ہوں اور 5 ایکڑ زمین ہے', 'مجھے صحت کی سہولت درکار ہے', 'روزگار کی اسکیم کے بارے میں بتائیں']
   : ['I have 3 kids and earn 25,000', "I'm a farmer with 5 acres", 'mujhe sehat ki madad chahiye', 'میرے 3 بچے ہیں اور آمدن 25,000 ہے'];
 
 export default function AssistantPage() {
@@ -88,8 +88,8 @@ export default function AssistantPage() {
     {
       id: '1',
       role: 'assistant',
-      content: welcomeMessage('en'),
-      suggestions: welcomeSuggestions('en'),
+      content: welcomeMessage(language),
+      suggestions: welcomeSuggestions(language),
     }
   ]);
   const [input, setInput] = useState('');
@@ -780,6 +780,8 @@ export default function AssistantPage() {
                   type="button"
                   onClick={() => handleSend()}
                   disabled={!input.trim() || isLoading}
+                  aria-label={t('assistant.send', language)}
+                  title={t('assistant.send', language)}
                   className="px-4 py-2.5 bg-navy-800 text-white rounded-xl hover:bg-navy-700 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
                 >
                   {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}

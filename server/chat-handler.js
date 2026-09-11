@@ -294,6 +294,17 @@ RESPONSE FORMAT (valid JSON only):
   "sources": ["Source name and URL"]
 }`;
 
+const hasUrduCharacters = (text) => /[\u0600-\u06FF]/.test(text);
+
+const CRITICAL_LANGUAGE_DIRECTIVE = `CRITICAL DIRECTIVE - LANGUAGE ENFORCEMENT:
+- IF the user query contains ANY Urdu script (e.g., میرے 3 بچے ہیں, کیا میں اہل ہوں؟) OR the requested language parameter is 'ur'/'urdu':
+  - You MUST reply 100% in natural, polite Urdu written in Urdu script (اردو رسم الخط).
+  - You are STRICTLY FORBIDDEN from using English words or sentences in your response.
+  - Translate all program names, eligibility criteria, and step-by-step guidance into clear Urdu.
+- IF the user writes in Roman Urdu (e.g. 'mere 3 bachay hain'), reply in Roman Urdu.
+- IF the user writes in English, reply in English.
+- Do not mix languages unless citing an official acronym like BISP or NADRA.`;
+
 function searchPrograms(query) {
   if (!query.trim()) return verifiedPrograms;
   const normalizedQuery = query.toLowerCase().trim();
@@ -363,7 +374,7 @@ export function createChatHandler() {
     
     const client = new OpenAI({ apiKey, baseURL: baseUrl });
     
-    const hasUrduScript = /[\u0600-\u06FF]/.test(query);
+    const hasUrduScript = hasUrduCharacters(query);
     const romanUrduPattern = /\b(mujhe|aap|apka|apni|hai|hain|madad|chahiye|kaise|kya|mera|meri|mere|ke liye|batayein|program|bachay|bache)\b/i;
     const isRomanUrdu = !hasUrduScript && romanUrduPattern.test(query);
     const isUrduScript = language === 'ur' || language === 'urdu' || hasUrduScript;
@@ -389,13 +400,27 @@ CRITICAL LANGUAGE ENFORCEMENT RULE:
 1. The user's latest message and active session are English.
 2. Reply entirely in clear, natural English.`;
     
-    const systemMessage = `${SYSTEM_PROMPT}${languageInstruction}\n\n=== CURRENT USER PROFILE ===\n${JSON.stringify(profile, null, 2)}\n=== END PROFILE ===\n\n=== VERIFIED PROGRAM DATA ===\n${programContext}\n=== END PROGRAMS ===\n\nUse ONLY the programs listed above. Reference them by their ID.`;
+    const systemMessage = `${CRITICAL_LANGUAGE_DIRECTIVE}\n\n${SYSTEM_PROMPT}${languageInstruction}\n\n=== CURRENT USER PROFILE ===\n${JSON.stringify(profile, null, 2)}\n=== END PROFILE ===\n\n=== VERIFIED PROGRAM DATA ===\n${programContext}\n=== END PROGRAMS ===\n\nUse ONLY the programs listed above. Reference them by their ID.`;
+
+    const languageAwareMessages = messages.map((message, index) => {
+      if (index !== messages.length - 1 || message.role !== 'user') {
+        return { role: message.role, content: message.content };
+      }
+
+      const needsUrduInstruction = hasUrduCharacters(message.content) || language === 'ur' || language === 'urdu';
+      return {
+        role: message.role,
+        content: needsUrduInstruction
+          ? `${message.content}\n\n[User is communicating in Urdu. Respond exclusively in Urdu script.]`
+          : message.content,
+      };
+    });
     
     const completion = await client.chat.completions.create({
       model,
       messages: [
         { role: 'system', content: systemMessage },
-        ...messages.map(m => ({ role: m.role, content: m.content }))
+        ...languageAwareMessages
       ],
       temperature: 0.7,
       max_tokens: 1500,
