@@ -44,9 +44,11 @@ interface SpeechRecognitionInstance {
   lang: string;
   interimResults: boolean;
   continuous: boolean;
+  maxAlternatives?: number;
   onstart: (() => void) | null;
   onresult: ((event: SpeechRecognitionEvent) => void) | null;
   onerror: ((event: SpeechRecognitionErrorEvent) => void) | null;
+  onnomatch?: (() => void) | null;
   onend: (() => void) | null;
   start: () => void;
   stop: () => void;
@@ -113,6 +115,7 @@ export default function AssistantPage() {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const recognitionRef = useRef<SpeechRecognitionInstance | null>(null);
   const voiceTranscriptRef = useRef('');
+  const voiceLiveTranscriptRef = useRef('');
   const voiceInputPrefixRef = useRef('');
   const isListeningRef = useRef(false);
   const manualStopRef = useRef(false);
@@ -360,6 +363,7 @@ export default function AssistantPage() {
     setVoiceError('');
     stop();
     voiceTranscriptRef.current = '';
+    voiceLiveTranscriptRef.current = '';
     setVoiceUserCaption('');
     voiceInputPrefixRef.current = input.trim();
     manualStopRef.current = false;
@@ -370,6 +374,7 @@ export default function AssistantPage() {
     recognition.lang = requestedVoiceLanguage === 'ur' ? 'ur-PK' : 'en-US';
     recognition.interimResults = true;
     recognition.continuous = true;
+    recognition.maxAlternatives = 1;
     recognitionRef.current = recognition;
 
     recognition.onstart = () => {
@@ -394,6 +399,7 @@ export default function AssistantPage() {
 
       voiceTranscriptRef.current = `${voiceTranscriptRef.current} ${finalTranscript}`.trim();
       const liveTranscript = `${voiceTranscriptRef.current} ${interimTranscript}`.trim();
+      voiceLiveTranscriptRef.current = liveTranscript;
       setInput([voiceInputPrefixRef.current, liveTranscript].filter(Boolean).join(' '));
       setVoiceUserCaption(liveTranscript);
 
@@ -405,6 +411,17 @@ export default function AssistantPage() {
       }
     };
     recognition.onerror = (event) => {
+      if (event.error === 'language-not-supported' && requestedVoiceLanguage === 'ur' && recognition.lang === 'ur-PK') {
+        recognition.lang = 'ur';
+        try {
+          recognition.start();
+          return;
+        } catch (error) {
+          // Fall through to the regular voice error state.
+        }
+      }
+
+      if (event.error === 'no-speech') return;
       if (event.error === 'not-allowed' || event.error === 'service-not-allowed' || event.error === 'audio-capture') {
         manualStopRef.current = true;
         isListeningRef.current = false;
@@ -412,13 +429,16 @@ export default function AssistantPage() {
         setVoiceError(t('assistant.voiceUnsupported', language));
       }
     };
+    recognition.onnomatch = () => {
+      if (isVoiceModeOpen) setVoiceError(requestedVoiceLanguage === 'ur' ? 'اردو آواز سمجھ نہیں آئی، براہ کرم دوبارہ بولیں۔' : 'I could not understand that. Please try again.');
+    };
     recognition.onend = () => {
       if (voiceSilenceTimerRef.current) {
         window.clearTimeout(voiceSilenceTimerRef.current);
         voiceSilenceTimerRef.current = null;
       }
 
-      const completedTranscript = voiceTranscriptRef.current.trim();
+      const completedTranscript = voiceLiveTranscriptRef.current.trim();
       if (isVoiceModeOpen && completedTranscript && !voiceTurnSubmittingRef.current && !manualStopRef.current) {
         voiceTurnSubmittingRef.current = true;
         isListeningRef.current = false;
