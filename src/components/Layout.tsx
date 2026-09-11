@@ -2,6 +2,7 @@ import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { useApp } from '../context/AppContext';
 import { t } from '../data/translations';
+import Logo from './Logo';
 import { 
   Home, Search, Shield, MessageCircle, User, Users,
   Menu, X, Globe, ChevronRight
@@ -28,14 +29,7 @@ export function Navbar() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16">
           {/* Logo */}
-          <Link to="/" className="flex items-center gap-2 shrink-0">
-            <div className="w-9 h-9 bg-navy-800 rounded-lg flex items-center justify-center">
-              <span className="text-white font-bold text-sm">SS</span>
-            </div>
-            <span className="font-bold text-navy-900 text-lg hidden sm:block">
-              Sarkar Sathi
-            </span>
-          </Link>
+          <Logo />
           
           {/* Desktop Nav */}
           <div className="hidden lg:flex items-center gap-1">
@@ -114,12 +108,7 @@ export function Footer() {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
           {/* Brand */}
           <div>
-            <div className="flex items-center gap-2 mb-3">
-              <div className="w-8 h-8 bg-white rounded-lg flex items-center justify-center">
-                <span className="text-navy-900 font-bold text-xs">SS</span>
-              </div>
-              <span className="font-bold text-lg">Sarkar Sathi</span>
-            </div>
+            <div className="mb-3"><Logo inverse /></div>
             <p className="text-navy-300 text-sm leading-relaxed">
               {t('footer.tagline', language)}
             </p>

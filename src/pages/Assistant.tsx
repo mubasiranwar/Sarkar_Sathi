@@ -5,10 +5,11 @@ import { verifiedPrograms, VerifiedProgram } from '../data/verifiedPrograms';
 import { UserProfile, extractProfileFromMessage, getMissingInformation, getNextQuestion, formatProfileForDisplay, detectLanguage } from '../lib/profile';
 import { classifyIntent, getProgramsForIntent } from '../lib/intents';
 import { getRecommendedPrograms, getEligibilityStatusText, getEligibilityStatusColor } from '../lib/recommendations';
-import VoiceModal from '../components/VoiceModal';
+import CopilotVoiceModal from '../components/CopilotVoiceModal';
+import Logo from '../components/Logo';
 import { useSpeechSynthesis } from '../hooks/useSpeechSynthesis';
 import { 
-  Send, Bot, User, Sparkles, AlertTriangle, 
+  Send, Bot, User, AlertTriangle,
   ArrowRight, Search, Info, MessageCircle,
   Loader2, UserCircle, X, ExternalLink, CheckCircle2, Mic, MicOff, Headphones
 } from 'lucide-react';
@@ -296,7 +297,6 @@ export default function AssistantPage() {
       suggestions: suggestions.length > 0 ? suggestions : undefined,
     };
     
-    await new Promise(resolve => setTimeout(resolve, 500));
     setMessages(prev => [...prev, assistantMsg]);
     setVoiceAssistantCaption(responseContent);
     if (isVoiceModeOpen && !isVoiceMuted) speak(responseContent, detectedLanguage);
@@ -311,6 +311,7 @@ export default function AssistantPage() {
     }
 
     setVoiceError('');
+    stop();
     voiceTranscriptRef.current = '';
     setVoiceUserCaption('');
     voiceInputPrefixRef.current = input.trim();
@@ -382,6 +383,7 @@ export default function AssistantPage() {
       isListeningRef.current = false;
       recognitionRef.current?.stop();
       setIsListening(false);
+      if (isVoiceModeOpen && input.trim()) handleSend();
       return;
     }
     startRecognition();
@@ -399,6 +401,7 @@ export default function AssistantPage() {
     }
     setVoiceAssistantCaption('');
     setIsVoiceModeOpen(true);
+    startRecognition();
   };
 
   const switchVoiceLanguage = () => {
@@ -602,9 +605,7 @@ export default function AssistantPage() {
           {/* Header */}
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-navy-800 rounded-xl flex items-center justify-center">
-                <Sparkles className="w-5 h-5 text-white" />
-              </div>
+              <Logo compact />
               <div>
                 <h1 className="text-xl font-bold text-navy-900">Sarkar Sathi Assistant</h1>
                 <p className="text-xs text-navy-500">Powered by Qwen3-Max • Verified government data</p>
@@ -614,7 +615,7 @@ export default function AssistantPage() {
               <button
                 onClick={toggleVoiceMode}
                 className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
-                  isVoiceModeOpen ? 'bg-cyan-100 text-cyan-800' : 'bg-white border border-navy-200 text-navy-600 hover:bg-navy-50'
+                  isVoiceModeOpen ? 'bg-cyan-100 text-cyan-800' : 'bg-linear-to-r from-emerald-700 to-cyan-700 text-white shadow-md shadow-emerald-900/20 hover:from-emerald-600 hover:to-cyan-600'
                 }`}
                 aria-label={isVoiceModeOpen ? 'Exit Voice Mode' : 'Open Voice Mode'}
               >
@@ -635,7 +636,7 @@ export default function AssistantPage() {
           
           {/* Chat Container */}
           <div className="bg-white rounded-2xl border border-navy-100 shadow-sm overflow-hidden">
-            <div className="h-[500px] sm:h-[600px] overflow-y-auto p-4 sm:p-6 space-y-4">
+            <div className="h-125 sm:h-150 overflow-y-auto p-4 sm:p-6 space-y-4">
               {messages.map((msg) => (
                 <div key={msg.id} className={`flex gap-3 ${msg.role === 'user' ? 'flex-row-reverse' : ''}`}>
                   <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${
@@ -866,7 +867,7 @@ export default function AssistantPage() {
         </div>
       </div>
 
-      <VoiceModal
+      <CopilotVoiceModal
         isOpen={isVoiceModeOpen}
         isListening={isListening}
         isProcessing={isLoading}
@@ -886,6 +887,7 @@ export default function AssistantPage() {
         onPauseToggle={isPaused ? resume : pause}
         onStopSpeaking={stop}
         onExit={toggleVoiceMode}
+        onHangUp={toggleVoiceMode}
         onSwitchLanguage={switchVoiceLanguage}
         onToggleListening={toggleVoiceInput}
         onSend={() => handleSend()}

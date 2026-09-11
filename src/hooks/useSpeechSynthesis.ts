@@ -3,14 +3,18 @@ import { useCallback, useEffect, useState } from 'react';
 export type SpeechLanguage = 'urdu' | 'roman_urdu' | 'english';
 
 function languageCode(language: SpeechLanguage): string {
-  return language === 'urdu' ? 'ur-PK' : 'en-US';
+  return language === 'urdu' || language === 'roman_urdu' ? 'ur-PK' : 'en-US';
 }
 
 function cleanSpeechText(text: string): string {
   return text
     .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1')
+    .replace(/https?:\/\/\S+/g, '')
+    .replace(/^\s*[-•]\s+/gm, '')
+    .replace(/^\s*#+\s+/gm, '')
     .replace(/[*_]/g, '')
     .replace(/---/g, '')
+    .replace(/\s{2,}/g, ' ')
     .replace(/\n+/g, '. ')
     .trim();
 }
@@ -34,7 +38,7 @@ export function useSpeechSynthesis() {
 
     window.speechSynthesis.cancel();
     const utterance = new SpeechSynthesisUtterance(cleanSpeechText(text));
-    const preferredPrefix = language === 'urdu' ? 'ur' : 'en';
+    const preferredPrefix = language === 'urdu' || language === 'roman_urdu' ? 'ur' : 'en';
     const preferredVoice = voices.find(voice => voice.lang.toLowerCase().startsWith(preferredPrefix));
     utterance.voice = preferredVoice || null;
     utterance.lang = preferredVoice?.lang || languageCode(language);
