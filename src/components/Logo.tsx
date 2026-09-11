@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom';
+import { useApp } from '../context/AppContext';
 
 interface LogoProps {
   compact?: boolean;
@@ -6,6 +7,7 @@ interface LogoProps {
 }
 
 export default function Logo({ compact = false, inverse = false }: LogoProps) {
+  const { language } = useApp();
   const titleColor = inverse ? 'text-white' : 'text-slate-900';
   const subtitleColor = inverse ? 'text-emerald-100/70' : 'text-slate-500';
 
@@ -25,8 +27,8 @@ export default function Logo({ compact = false, inverse = false }: LogoProps) {
       </svg>
       {!compact && (
         <span className="min-w-0 text-left leading-tight">
-          <span className={`block truncate text-base font-extrabold tracking-tight ${titleColor}`}>Sarkar Sathi</span>
-          <span className={`hidden text-[9px] font-semibold uppercase tracking-[0.12em] sm:block ${subtitleColor}`}>Gov Services Navigator · Qwen AI</span>
+          <span className={`block truncate text-base font-extrabold tracking-tight ${titleColor}`}>{language === 'ur' ? 'سرکار ساتھی' : 'Sarkar Sathi'}</span>
+          <span className={`hidden text-[9px] font-semibold uppercase tracking-[0.12em] sm:block ${subtitleColor}`}>{language === 'ur' ? 'سرکاری خدمات کا رہنما • Qwen AI' : 'Gov Services Navigator · Qwen AI'}</span>
         </span>
       )}
     </Link>

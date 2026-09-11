@@ -268,10 +268,11 @@ CRITICAL RULES:
 5. If verified information is unavailable, say "This information needs verification."
 
 LANGUAGE HANDLING:
-- If user writes in Urdu (اردو), respond in Urdu
-- If user writes in Roman Urdu (e.g., "mera naam hai", "mujhe madad chahiye"), respond in Roman Urdu
-- If user writes in English, respond in English
-- Match the user's language preference throughout the conversation
+- Detect the language of the user's latest query and the active session language flag.
+- If the user writes or speaks in Urdu (اردو) or Roman Urdu, or if the active session language is Urdu, respond entirely in natural, polite, and fluent Urdu (اردو رسم الخط).
+- NEVER respond in English when the user is conversing in Urdu.
+- Provide program names, eligibility criteria, and instructions clearly in authentic Urdu.
+- If the user writes in English and the active session language is English, respond entirely in English.
 - Program names can remain in their original form (e.g., "Benazir Kafaalat", "بینظیر کفالت")
 
 CONVERSATION STATE:
@@ -362,11 +363,12 @@ export function createChatHandler() {
     
     const client = new OpenAI({ apiKey, baseURL: baseUrl });
     
-    const languageInstruction = language === 'urdu' 
-      ? '\n\nIMPORTANT: User is writing in Urdu. Respond in Urdu (اردو).'
-      : language === 'roman_urdu'
-      ? '\n\nIMPORTANT: User is writing in Roman Urdu. Respond in Roman Urdu (e.g., "aap ke liye yeh program hai").'
-      : '\n\nUser is writing in English. Respond in English.';
+    const hasUrduScript = /[\u0600-\u06FF]/.test(query);
+    const romanUrduPattern = /\b(mujhe|aap|apka|hai|hain|madad|chahiye|kaise|kya|mera|meri|ke liye|batayein|program)\b/i;
+    const isUrduConversation = language === 'urdu' || hasUrduScript || romanUrduPattern.test(query);
+    const languageInstruction = isUrduConversation
+      ? '\n\nCRITICAL LANGUAGE RULE: Respond entirely in natural, polite, fluent Urdu using Urdu script (اردو رسم الخط). Do not use English or Roman Urdu for the answer, follow-up question, program explanations, eligibility criteria, or instructions. Translate supporting text while preserving official program names where useful.'
+      : '\n\nCRITICAL LANGUAGE RULE: Respond entirely in clear, natural English because the active session and latest user query are English.';
     
     const systemMessage = `${SYSTEM_PROMPT}${languageInstruction}\n\n=== CURRENT USER PROFILE ===\n${JSON.stringify(profile, null, 2)}\n=== END PROFILE ===\n\n=== VERIFIED PROGRAM DATA ===\n${programContext}\n=== END PROGRAMS ===\n\nUse ONLY the programs listed above. Reference them by their ID.`;
     

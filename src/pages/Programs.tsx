@@ -119,7 +119,7 @@ export default function ProgramsPage() {
             }`}
           >
             <Filter className="w-4 h-4" />
-            <span className="hidden sm:inline">Filters</span>
+            <span className="hidden sm:inline">{t('programs.filters', language)}</span>
             {hasActiveFilters && (
               <span className="w-2 h-2 rounded-full bg-navy-700"></span>
             )}
@@ -192,7 +192,7 @@ export default function ProgramsPage() {
       
       {/* Results Count */}
       <p className="text-sm text-navy-500 mb-4">
-        {filteredPrograms.length} program{filteredPrograms.length !== 1 ? 's' : ''} found
+        {filteredPrograms.length} {t('programs.found', language)}
       </p>
       
       {/* Program Cards */}
@@ -230,7 +230,7 @@ function ProgramCard({ program, language }: { program: VerifiedProgram; language
     >
       <div className="flex items-start justify-between mb-3">
         <span className={`px-2.5 py-1 rounded-md text-xs font-medium border ${categoryColors[primaryCategory] || 'bg-gray-50 text-gray-700 border-gray-200'}`}>
-          {primaryCategory.replace('_', ' ')}
+          {t(`home.category.${primaryCategory}`, language) !== `home.category.${primaryCategory}` ? t(`home.category.${primaryCategory}`, language) : primaryCategory.replace('_', ' ')}
         </span>
         <span className="text-xs text-navy-400 font-medium flex items-center gap-1">
           <MapPin className="w-3 h-3" />
@@ -248,7 +248,7 @@ function ProgramCard({ program, language }: { program: VerifiedProgram; language
       
       {/* Eligibility preview */}
       <div className="mb-3">
-        <p className="text-xs text-navy-400 font-medium mb-1">Eligibility:</p>
+        <p className="text-xs text-navy-400 font-medium mb-1">{t('programs.eligibility', language)}:</p>
         <p className="text-xs text-navy-600 line-clamp-1">
           {eligibilityPreview}
         </p>

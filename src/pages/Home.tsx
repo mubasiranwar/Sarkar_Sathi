@@ -51,7 +51,7 @@ export default function HomePage() {
   return (
     <div>
       {/* Hero Section - AI Assistant Focus */}
-      <section className="relative bg-gradient-to-br from-navy-900 via-navy-800 to-navy-900 overflow-hidden">
+      <section className="relative bg-linear-to-br from-navy-900 via-navy-800 to-navy-900 overflow-hidden">
         <div className="absolute inset-0">
           <div className="absolute inset-0 opacity-[0.03]" style={{backgroundImage: 'url("data:image/svg+xml,%3Csvg width=\'60\' height=\'60\' viewBox=\'0 0 60 60\' xmlns=\'http://www.w3.org/2000/svg\'%3E%3Cg fill=\'none\' fill-rule=\'evenodd\'%3E%3Cg fill=\'%23ffffff\' fill-opacity=\'1\'%3E%3Cpath d=\'M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z\'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")'}}></div>
           <div className="absolute top-20 left-10 w-72 h-72 bg-green-500/10 rounded-full blur-3xl"></div>
@@ -62,14 +62,14 @@ export default function HomePage() {
           <div className="text-center">
             <div className="inline-flex items-center gap-2 px-3 py-1.5 bg-white/10 backdrop-blur-sm border border-white/20 rounded-full mb-6 animate-fade-in">
               <Sparkles className="w-3.5 h-3.5 text-green-400" />
-              <span className="text-xs font-medium text-navy-200">Powered by Qwen3-Max AI</span>
+              <span className="text-xs font-medium text-navy-200">{t('home.badge', language)}</span>
             </div>
             
             <h1 className="text-3xl sm:text-4xl lg:text-5xl font-extrabold text-white leading-tight mb-4 animate-fade-in stagger-1">
-              Ask Sarkar Sathi
+              {t('home.title', language)}
             </h1>
             <p className="text-lg sm:text-xl text-navy-200 leading-relaxed mb-8 animate-fade-in stagger-2 max-w-2xl mx-auto">
-              Tell us about yourself and we'll help you find the right government programs
+              {t('home.description', language)}
             </p>
             
             <div className="animate-fade-in stagger-3">
@@ -78,31 +78,31 @@ export default function HomePage() {
                 className="inline-flex items-center gap-3 px-8 py-4 bg-white text-navy-900 font-bold rounded-xl hover:bg-navy-50 transition-all shadow-lg shadow-black/20 hover:-translate-y-0.5 text-lg"
               >
                 <Sparkles className="w-5 h-5" />
-                Start Conversation
+                {t('home.start', language)}
                 <ArrowRight className="w-5 h-5" />
               </Link>
             </div>
             
             <div className="mt-10 animate-fade-in stagger-4">
-              <p className="text-sm text-navy-300 mb-3">Try asking:</p>
+              <p className="text-sm text-navy-300 mb-3">{t('home.tryAsking', language)}</p>
               <div className="flex flex-wrap justify-center gap-2">
                 <button
-                  onClick={() => handleSuggestion("I have 3 kids and earn 25,000, am I eligible for any programs?")}
+                  onClick={() => handleSuggestion(language === 'ur' ? 'میرے 3 بچے ہیں اور آمدن 25,000 ہے، کیا میں اہل ہوں؟' : "I have 3 kids and earn 25,000, am I eligible for any programs?")}
                   className="px-3 py-1.5 bg-white/10 backdrop-blur-sm border border-white/20 rounded-lg text-xs text-navy-200 hover:bg-white/20 transition-colors"
                 >
-                  "I have 3 kids and earn 25,000, am I eligible?"
+                  {language === 'ur' ? 'میرے 3 بچے ہیں اور آمدن 25,000 ہے، کیا میں اہل ہوں؟' : '"I have 3 kids and earn 25,000, am I eligible?"'}
                 </button>
                 <button
-                  onClick={() => handleSuggestion("I'm a farmer, what support is available?")}
+                  onClick={() => handleSuggestion(language === 'ur' ? 'میں کسان ہوں، کونسی معاونت دستیاب ہے؟' : "I'm a farmer, what support is available?")}
                   className="px-3 py-1.5 bg-white/10 backdrop-blur-sm border border-white/20 rounded-lg text-xs text-navy-200 hover:bg-white/20 transition-colors"
                 >
-                  "I'm a farmer, what support is available?"
+                  {language === 'ur' ? 'میں کسان ہوں، کونسی معاونت دستیاب ہے؟' : '"I\'m a farmer, what support is available?"'}
                 </button>
                 <button
-                  onClick={() => handleSuggestion("I need health support for my family")}
+                  onClick={() => handleSuggestion(language === 'ur' ? 'مجھے اپنے خاندان کے لیے صحت کی سہولت درکار ہے' : 'I need health support for my family')}
                   className="px-3 py-1.5 bg-white/10 backdrop-blur-sm border border-white/20 rounded-lg text-xs text-navy-200 hover:bg-white/20 transition-colors"
                 >
-                  "I need health support for my family"
+                  {language === 'ur' ? 'مجھے اپنے خاندان کے لیے صحت کی سہولت درکار ہے' : '"I need health support for my family"'}
                 </button>
               </div>
             </div>
@@ -115,7 +115,7 @@ export default function HomePage() {
         <div className="max-w-3xl mx-auto px-4 sm:px-6">
           <div className="bg-white rounded-2xl shadow-xl shadow-navy-900/5 border border-navy-100 p-6 sm:p-8">
             <h2 className="text-lg font-semibold text-navy-900 mb-4">
-              Or browse programs directly
+              {t('home.browseDirectly', language)}
             </h2>
             <form onSubmit={handleSearch} className="relative">
               <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-navy-400" />
@@ -123,7 +123,7 @@ export default function HomePage() {
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Search for programs..."
+                placeholder={t('programs.search', language)}
                 className="w-full pl-12 pr-4 py-3.5 bg-navy-50 border border-navy-200 rounded-xl text-navy-900 placeholder-navy-400 focus:outline-none focus:ring-2 focus:ring-navy-500 focus:border-transparent transition-all"
               />
             </form>
@@ -135,11 +135,11 @@ export default function HomePage() {
       <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
         <div className="flex items-end justify-between mb-8">
           <div>
-            <h2 className="text-2xl font-bold text-navy-900 mb-1">Browse by Category</h2>
-            <p className="text-navy-500">Find programs organized by type</p>
+            <h2 className="text-2xl font-bold text-navy-900 mb-1">{t('home.browseCategory', language)}</h2>
+            <p className="text-navy-500">{t('home.categoryDescription', language)}</p>
           </div>
           <Link to="/programs" className="hidden sm:flex items-center gap-1 text-sm font-medium text-navy-700 hover:text-navy-900">
-            View all <ChevronRight className="w-4 h-4" />
+            {t('home.viewAll', language)} <ChevronRight className="w-4 h-4" />
           </Link>
         </div>
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
@@ -152,7 +152,7 @@ export default function HomePage() {
               <div className="transition-transform group-hover:scale-110">
                 {categoryIcons[cat]}
               </div>
-              <span className="font-medium text-sm">{cat.replace('_', ' ')}</span>
+              <span className="font-medium text-sm">{t(`home.category.${cat}`, language)}</span>
             </Link>
           ))}
         </div>
@@ -163,11 +163,11 @@ export default function HomePage() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
           <div className="flex items-center justify-between mb-8">
             <div>
-              <h2 className="text-2xl font-bold text-navy-900">Featured Programs</h2>
-              <p className="text-navy-500 mt-1">Popular government programs</p>
+              <h2 className="text-2xl font-bold text-navy-900">{t('home.featured', language)}</h2>
+              <p className="text-navy-500 mt-1">{t('home.popular', language)}</p>
             </div>
             <Link to="/programs" className="hidden sm:flex items-center gap-1 text-navy-700 font-medium text-sm hover:text-navy-900">
-              View all <ChevronRight className="w-4 h-4" />
+              {t('home.viewAll', language)} <ChevronRight className="w-4 h-4" />
             </Link>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -198,7 +198,7 @@ export default function HomePage() {
             ))}
           </div>
           <Link to="/programs" className="sm:hidden mt-6 flex items-center justify-center gap-1 text-navy-700 font-medium text-sm">
-            View all programs <ChevronRight className="w-4 h-4" />
+            {t('home.viewAll', language)} <ChevronRight className="w-4 h-4" />
           </Link>
         </div>
       </section>
@@ -223,17 +223,17 @@ export default function HomePage() {
       
       {/* CTA */}
       <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-16">
-        <div className="relative bg-gradient-to-br from-navy-800 to-navy-900 rounded-2xl p-8 sm:p-12 overflow-hidden">
+        <div className="relative bg-linear-to-br from-navy-800 to-navy-900 rounded-2xl p-8 sm:p-12 overflow-hidden">
           <div className="absolute inset-0 opacity-5">
             <div className="absolute top-0 right-0 w-64 h-64 bg-green-400 rounded-full blur-3xl"></div>
             <div className="absolute bottom-0 left-0 w-48 h-48 bg-blue-400 rounded-full blur-3xl"></div>
           </div>
           <div className="relative text-center">
             <h2 className="text-2xl sm:text-3xl font-bold text-white mb-3">
-              Ready to find the right program?
+              {t('home.ready', language)}
             </h2>
             <p className="text-navy-200 mb-8 max-w-lg mx-auto">
-              Start a conversation with Sarkar Sathi and discover government services designed for you.
+              {t('home.readyDescription', language)}
             </p>
             <div className="flex flex-wrap justify-center gap-3">
               <Link
@@ -241,7 +241,7 @@ export default function HomePage() {
                 className="inline-flex items-center gap-2 px-6 py-3.5 bg-white text-navy-900 font-semibold rounded-xl hover:bg-navy-50 transition-all shadow-lg hover:-translate-y-0.5"
               >
                 <Sparkles className="w-4 h-4" />
-                Ask Sarkar Sathi
+                {t('home.ask', language)}
                 <ArrowRight className="w-4 h-4" />
               </Link>
             </div>

@@ -37,11 +37,22 @@ body {
 }
 
 [dir="rtl"] {
-  font-family: var(--font-urdu);
+  font-family: 'Noto Nastaliq Urdu', 'Jameel Noori Nastaleeq', 'Urdu Typesetting', Tahoma, sans-serif;
+  text-align: right;
 }
 
 [dir="rtl"] body {
   line-height: 2;
+}
+
+[dir="rtl"] input,
+[dir="rtl"] textarea,
+[dir="rtl"] select {
+  text-align: right;
+}
+
+[dir="rtl"] .text-left {
+  text-align: right;
 }
 
 @keyframes fadeIn {

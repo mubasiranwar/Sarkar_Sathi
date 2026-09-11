@@ -36,10 +36,10 @@ export default function ProgramDetailPage() {
         <div className="w-16 h-16 mx-auto mb-4 bg-navy-50 rounded-full flex items-center justify-center">
           <FileText className="w-7 h-7 text-navy-300" />
         </div>
-        <h1 className="text-xl font-semibold text-navy-900 mb-2">Program not found</h1>
-        <p className="text-navy-500 mb-4">The program you're looking for doesn't exist or has been removed.</p>
+        <h1 className="text-xl font-semibold text-navy-900 mb-2">{t('detail.notFound', language)}</h1>
+        <p className="text-navy-500 mb-4">{t('detail.notFoundDescription', language)}</p>
         <Link to="/programs" className="text-navy-700 font-medium hover:text-navy-900">
-          ← Back to Programs
+          ← {t('detail.back', language)}
         </Link>
       </div>
     );
@@ -51,7 +51,7 @@ export default function ProgramDetailPage() {
     <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       {/* Breadcrumb */}
       <nav className="flex items-center gap-2 text-sm text-navy-500 mb-6">
-        <Link to="/programs" className="hover:text-navy-700">Programs</Link>
+        <Link to="/programs" className="hover:text-navy-700">{t('nav.programs', language)}</Link>
         <ChevronRight className="w-3 h-3" />
         <span className="text-navy-800 font-medium">{program.name}</span>
       </nav>
@@ -143,7 +143,7 @@ export default function ProgramDetailPage() {
               <li className="flex items-start gap-2 text-navy-700">
                 <span className="w-1.5 h-1.5 rounded-full bg-navy-400 mt-2 shrink-0"></span>
                 <span>
-                  Age: {program.eligibility.age.note || 
+                  {language === 'ur' ? 'عمر: ' : 'Age: '}{program.eligibility.age.note ||
                     (program.eligibility.age.min && program.eligibility.age.max 
                       ? `${program.eligibility.age.min}-${program.eligibility.age.max} years`
                       : program.eligibility.age.min ? `Minimum ${program.eligibility.age.min} years` 
@@ -161,7 +161,7 @@ export default function ProgramDetailPage() {
             {program.eligibility.location?.provinces && (
               <li className="flex items-start gap-2 text-navy-700">
                 <span className="w-1.5 h-1.5 rounded-full bg-navy-400 mt-2 shrink-0"></span>
-                <span>Location: {program.eligibility.location.provinces.join(', ')} {program.eligibility.location.note && `(${program.eligibility.location.note})`}</span>
+                <span>{language === 'ur' ? 'مقام: ' : 'Location: '}{program.eligibility.location.provinces.join(', ')} {program.eligibility.location.note && `(${program.eligibility.location.note})`}</span>
               </li>
             )}
             {program.eligibility.occupation?.map((item, i) => (
@@ -173,7 +173,7 @@ export default function ProgramDetailPage() {
             {program.eligibility.education && (
               <li className="flex items-start gap-2 text-navy-700">
                 <span className="w-1.5 h-1.5 rounded-full bg-navy-400 mt-2 shrink-0"></span>
-                Education: {program.eligibility.education}
+                {language === 'ur' ? 'تعلیم: ' : 'Education: '}{program.eligibility.education}
               </li>
             )}
             {program.eligibility.other?.map((item, i) => (
@@ -204,7 +204,7 @@ export default function ProgramDetailPage() {
                         status === 'ready' ? 'bg-green-100 text-green-700' : 'bg-navy-50 text-navy-500 hover:bg-green-50'
                       }`}
                     >
-                      Ready
+                      {t('detail.ready', language)}
                     </button>
                     <button
                       onClick={() => setDocumentStatus(doc, 'not-ready')}
@@ -212,7 +212,7 @@ export default function ProgramDetailPage() {
                         status === 'not-ready' ? 'bg-red-100 text-red-700' : 'bg-navy-50 text-navy-500 hover:bg-red-50'
                       }`}
                     >
-                      Not ready
+                      {t('detail.notReady', language)}
                     </button>
                   </div>
                 </div>
@@ -262,8 +262,7 @@ export default function ProgramDetailPage() {
             <div>
               <h3 className="font-medium text-amber-800 mb-1">{t('detail.importantInfo', language)}</h3>
               <p className="text-sm text-amber-700">
-                Please verify all information with the relevant government department before taking action. 
-                Program details, eligibility criteria, and benefits may change over time.
+                {t('detail.verifyNotice', language)}
               </p>
             </div>
           </div>
@@ -277,10 +276,10 @@ export default function ProgramDetailPage() {
               <h3 className="font-medium text-navy-800 mb-1">{t('detail.source', language)}</h3>
               <p className="text-sm text-navy-600">{program.source.name}</p>
               <a href={program.source.url} target="_blank" rel="noopener noreferrer" className="text-sm text-navy-700 hover:text-navy-900 flex items-center gap-1 mt-1">
-                Visit official source <ExternalLink className="w-3 h-3" />
+                {t('detail.visitSource', language)} <ExternalLink className="w-3 h-3" />
               </a>
               <p className="text-xs text-navy-400 mt-2">
-                {t('common.lastUpdated', language)}: {program.source.verifiedAt} | Status: {program.source.verificationStatus === 'official' ? 'Official' : 'Needs verification'}
+                {t('common.lastUpdated', language)}: {program.source.verifiedAt} | {language === 'ur' ? 'حیثیت: ' : 'Status: '}{program.source.verificationStatus === 'official' ? t('detail.official', language) : t('detail.needsVerification', language)}
               </p>
             </div>
           </div>
@@ -295,13 +294,13 @@ export default function ProgramDetailPage() {
             className="inline-flex items-center gap-2 px-6 py-3 bg-navy-800 text-white font-semibold rounded-xl hover:bg-navy-700 transition-all shadow-sm"
           >
             <Shield className="w-4 h-4" />
-            Ask Sarkar Sathi
+            {t('detail.askAssistant', language)}
           </Link>
           <Link
             to="/assistant"
             className="inline-flex items-center gap-2 px-6 py-3 bg-white text-navy-700 font-semibold rounded-xl hover:bg-navy-50 transition-all border border-navy-200"
           >
-            Check my eligibility
+            {t('detail.checkMyEligibility', language)}
           </Link>
         </div>
       </div>

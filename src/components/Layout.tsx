@@ -19,7 +19,7 @@ export function Navbar() {
     { path: '/programs', label: t('nav.programs', language), icon: Search },
     { path: '/assistant', label: t('nav.assistant', language), icon: MessageCircle },
     { path: '/my-services', label: t('nav.myServices', language), icon: User },
-    { path: '/about', label: 'About', icon: Users },
+    { path: '/about', label: t('nav.about', language), icon: Users },
   ];
   
   const isActive = (path: string) => location.pathname === path;
@@ -53,16 +53,16 @@ export function Navbar() {
             <button
               onClick={() => setLanguage(language === 'en' ? 'ur' : 'en')}
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium text-navy-600 hover:bg-navy-50 transition-colors border border-navy-200"
-              aria-label="Switch language"
+              aria-label={t('nav.language', language)}
             >
               <Globe className="w-4 h-4" />
-              <span>{language === 'en' ? 'اردو' : 'English'}</span>
+              <span>{t('nav.language', language)}</span>
             </button>
             
             <button
               onClick={() => setMobileOpen(!mobileOpen)}
               className="lg:hidden p-2 rounded-lg text-navy-600 hover:bg-navy-50"
-              aria-label="Toggle menu"
+              aria-label={t('nav.menu', language)}
             >
               {mobileOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
             </button>
@@ -116,7 +116,7 @@ export function Footer() {
           
           {/* Links */}
           <div>
-            <h3 className="font-semibold text-sm mb-3 text-navy-200">Quick Links</h3>
+            <h3 className="font-semibold text-sm mb-3 text-navy-200">{t('nav.quickLinks', language)}</h3>
             <div className="space-y-2">
               <Link to="/programs" className="block text-sm text-navy-300 hover:text-white transition-colors">
                 {t('nav.programs', language)}
@@ -128,14 +128,14 @@ export function Footer() {
                 {t('nav.myServices', language)}
               </Link>
               <Link to="/about" className="block text-sm text-navy-300 hover:text-white transition-colors">
-                About Us
+                {t('common.aboutUs', language)}
               </Link>
             </div>
           </div>
           
           {/* Trust */}
           <div>
-            <h3 className="font-semibold text-sm mb-3 text-navy-200">Important Notice</h3>
+            <h3 className="font-semibold text-sm mb-3 text-navy-200">{t('footer.importantNotice', language)}</h3>
             <p className="text-sm text-navy-300 leading-relaxed">
               {t('footer.trust', language)}
             </p>
@@ -147,7 +147,7 @@ export function Footer() {
         
         <div className="border-t border-navy-700 mt-8 pt-6 text-center">
           <p className="text-xs text-navy-400">
-            © 2024 Sarkar Sathi. A citizen navigation tool for Pakistan's public services.
+            {t('footer.copyright', language)}
           </p>
         </div>
       </div>
@@ -162,9 +162,9 @@ function MobileBottomNav() {
   const items = [
     { path: '/', label: t('nav.home', language), icon: Home },
     { path: '/programs', label: t('nav.programs', language), icon: Search },
-    { path: '/assistant', label: 'Assistant', icon: MessageCircle },
-    { path: '/my-services', label: 'My', icon: User },
-    { path: '/about', label: 'About', icon: Users },
+    { path: '/assistant', label: t('nav.assistant', language), icon: MessageCircle },
+    { path: '/my-services', label: t('nav.myServices', language), icon: User },
+    { path: '/about', label: t('nav.about', language), icon: Users },
   ];
   
   const isActive = (path: string) => location.pathname === path;

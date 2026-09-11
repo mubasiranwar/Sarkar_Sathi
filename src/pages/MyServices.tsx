@@ -29,17 +29,17 @@ export default function MyServicesPage() {
   // Next steps
   const nextSteps = [];
   if (savedPrograms.length === 0) {
-    nextSteps.push({ text: 'Browse and save programs you\'re interested in', link: '/programs', icon: Search });
+    nextSteps.push({ text: t('my.step.save', language), link: '/programs', icon: Search });
   }
   if (!userProfile) {
-    nextSteps.push({ text: 'Complete eligibility check for personalized recommendations', link: '/eligibility', icon: CheckCircle2 });
+    nextSteps.push({ text: t('my.step.eligibility', language), link: '/eligibility', icon: CheckCircle2 });
   }
   const unreadyDocs = uniqueDocuments.filter(doc => documentChecklist[doc] !== 'ready');
   if (unreadyDocs.length > 0) {
-    nextSteps.push({ text: `Prepare ${unreadyDocs.length} document${unreadyDocs.length > 1 ? 's' : ''} for your saved programs`, link: '#documents', icon: FileText });
+    nextSteps.push({ text: t('my.step.prepare', language).replace('{count}', String(unreadyDocs.length)).replace('{plural}', unreadyDocs.length > 1 ? language === 'ur' ? 'ات' : 's' : ''), link: '#documents', icon: FileText });
   }
   if (nextSteps.length === 0) {
-    nextSteps.push({ text: 'Review your saved programs and apply when ready', link: '#saved', icon: ArrowRight });
+    nextSteps.push({ text: t('my.step.review', language), link: '#saved', icon: ArrowRight });
   }
   
   return (
@@ -48,7 +48,7 @@ export default function MyServicesPage() {
       <div className="flex items-center justify-between mb-8">
         <div>
           <h1 className="text-2xl sm:text-3xl font-bold text-navy-900">{t('my.title', language)}</h1>
-          <p className="text-navy-500 mt-1">Your personalized government services dashboard</p>
+          <p className="text-navy-500 mt-1">{t('my.subtitle', language)}</p>
         </div>
         <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 bg-amber-50 border border-amber-200 rounded-lg">
           <User className="w-3.5 h-3.5 text-amber-600" />
@@ -106,12 +106,12 @@ export default function MyServicesPage() {
                     to={`/programs/${program!.id}`}
                     className="px-3 py-1.5 text-xs font-medium text-navy-700 bg-navy-50 rounded-lg hover:bg-navy-100"
                   >
-                    View
+                    {t('my.view', language)}
                   </Link>
                   <button
                     onClick={() => toggleSaveProgram(program!.id)}
                     className="p-1.5 text-navy-400 hover:text-red-500 transition-colors"
-                    aria-label="Remove from saved"
+                    aria-label={t('my.remove', language)}
                   >
                     <X className="w-4 h-4" />
                   </button>
@@ -186,7 +186,7 @@ export default function MyServicesPage() {
                         status === 'ready' ? 'bg-green-100 text-green-700' : 'bg-navy-50 text-navy-500 hover:bg-green-50'
                       }`}
                     >
-                      Ready
+                      {t('my.ready', language)}
                     </button>
                     <button
                       onClick={() => setDocumentStatus(doc, 'not-ready')}
@@ -194,7 +194,7 @@ export default function MyServicesPage() {
                         status === 'not-ready' ? 'bg-red-100 text-red-700' : 'bg-navy-50 text-navy-500 hover:bg-red-50'
                       }`}
                     >
-                      Not ready
+                      {t('my.notReady', language)}
                     </button>
                   </div>
                 </div>
@@ -204,12 +204,12 @@ export default function MyServicesPage() {
         ) : (
           <div className="text-center py-8 bg-white rounded-xl border border-navy-100">
             <FileText className="w-8 h-8 text-navy-200 mx-auto mb-2" />
-            <p className="text-sm text-navy-500 mb-3">Save programs to see required documents here.</p>
+            <p className="text-sm text-navy-500 mb-3">{t('my.emptyDocuments', language)}</p>
             <Link
               to="/programs"
               className="inline-flex items-center gap-1 text-sm font-medium text-navy-700 hover:text-navy-900"
             >
-              Browse Programs <ArrowRight className="w-3.5 h-3.5" />
+              {t('my.browse', language)} <ArrowRight className="w-3.5 h-3.5" />
             </Link>
           </div>
         )}

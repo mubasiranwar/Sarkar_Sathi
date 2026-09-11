@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useApp } from '../context/AppContext';
+import { t } from '../data/translations';
 import { verifiedPrograms, VerifiedProgram } from '../data/verifiedPrograms';
 import { UserProfile, extractProfileFromMessage, getMissingInformation, getNextQuestion, formatProfileForDisplay, detectLanguage } from '../lib/profile';
 import { classifyIntent, getProgramsForIntent } from '../lib/intents';
@@ -73,12 +74,13 @@ interface Message {
   documents?: string[];
 }
 
-const loadingMessages = [
-  'Understanding your request...',
-  'Analyzing your profile...',
-  'Finding relevant programs...',
-  'Preparing recommendations...',
-];
+const welcomeMessage = (language: 'en' | 'ur') => language === 'ur'
+  ? "السلام علیکم! سرکار ساتھی میں خوش آمدید۔\n\nمیں آپ کو ان سرکاری پروگرامز کی تلاش میں مدد دوں گا جن کے لیے آپ اہل ہو سکتے ہیں۔\n\n💬 **آپ مجھ سے بات کر سکتے ہیں:**\n• اردو\n• English\n• رومن اردو\n\nاپنے بارے میں بتائیں:\n• آپ کے خاندان میں کتنے افراد ہیں؟\n• آپ کی ماہانہ آمدن کتنی ہے؟\n• آپ کیا کام کرتے ہیں؟\n• آپ کو کس قسم کی مدد درکار ہے؟"
+  : "Assalam o Alaikum! Welcome to Sarkar Sathi.\n\nI'm here to help you find government programs you may be eligible for.\n\n💬 **You can chat with me in:**\n• English\n• Urdu (اردو)\n• Roman Urdu (e.g., \"mujhe madad chahiye\")\n\nI'll respond in the same language you use!\n\nLet's start - tell me about yourself:\n• How many family members do you have?\n• What is your monthly income?\n• What do you do for work?\n• What kind of support are you looking for?";
+
+const welcomeSuggestions = (language: 'en' | 'ur') => language === 'ur'
+  ? ['میرے 3 بچے ہیں اور آمدن 25,000 ہے', 'میں 5 ایکڑ والا کسان ہوں', 'مجھے صحت کی مدد چاہیے', 'میرے خاندان کے لیے مالی مدد چاہیے']
+  : ['I have 3 kids and earn 25,000', "I'm a farmer with 5 acres", 'mujhe sehat ki madad chahiye', 'میرے 3 بچے ہیں اور آمدن 25,000 ہے'];
 
 export default function AssistantPage() {
   const { language, setLanguage } = useApp();
@@ -86,8 +88,8 @@ export default function AssistantPage() {
     {
       id: '1',
       role: 'assistant',
-      content: "Assalam o Alaikum! Welcome to Sarkar Sathi.\n\nI'm here to help you find government programs you may be eligible for.\n\n💬 **You can chat with me in:**\n• English\n• Urdu (اردو)\n• Roman Urdu (e.g., \"mujhe madad chahiye\")\n\nI'll respond in the same language you use!\n\nLet's start - tell me about yourself:\n• How many family members do you have?\n• What is your monthly income?\n• What do you do for work?\n• What kind of support are you looking for?",
-      suggestions: ['I have 3 kids and earn 25,000', "I'm a farmer with 5 acres", 'mujhe sehat ki madad chahiye', 'میرے 3 بچے ہیں اور آمدن 25,000 ہے'],
+      content: welcomeMessage('en'),
+      suggestions: welcomeSuggestions('en'),
     }
   ]);
   const [input, setInput] = useState('');
@@ -109,6 +111,14 @@ export default function AssistantPage() {
   const isListeningRef = useRef(false);
   const manualStopRef = useRef(false);
   const { isSpeaking, isPaused, speak, pause, resume, stop } = useSpeechSynthesis();
+  const loadingMessages = [1, 2, 3, 4].map(index => t(`assistant.loading.${index}`, language));
+
+  useEffect(() => {
+    setMessages(prev => {
+      if (prev.length !== 1 || prev[0].id !== '1') return prev;
+      return [{ ...prev[0], content: welcomeMessage(language), suggestions: welcomeSuggestions(language) }];
+    });
+  }, [language]);
   
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -156,7 +166,7 @@ export default function AssistantPage() {
             content: m.content
           })),
           profile: updatedProfile,
-          language: userLanguage
+          language: language === 'ur' ? 'urdu' : userLanguage
         }),
       });
       
@@ -306,7 +316,7 @@ export default function AssistantPage() {
   const startRecognition = () => {
     const SpeechRecognitionAPI = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (!SpeechRecognitionAPI) {
-      setVoiceError('Voice input is not supported in this browser. Please type your message.');
+      setVoiceError(t('assistant.voiceUnsupported', language));
       return;
     }
 
@@ -350,7 +360,7 @@ export default function AssistantPage() {
         manualStopRef.current = true;
         isListeningRef.current = false;
         setIsListening(false);
-        setVoiceError('Voice input is not supported in this browser. Please type your message.');
+        setVoiceError(t('assistant.voiceUnsupported', language));
       }
     };
     recognition.onend = () => {
@@ -373,7 +383,7 @@ export default function AssistantPage() {
       recognitionRef.current = null;
       isListeningRef.current = false;
       setIsListening(false);
-      setVoiceError('Voice input is not supported in this browser. Please type your message.');
+      setVoiceError(t('assistant.voiceUnsupported', language));
     }
   };
 
@@ -607,8 +617,8 @@ export default function AssistantPage() {
             <div className="flex items-center gap-3">
               <Logo compact />
               <div>
-                <h1 className="text-xl font-bold text-navy-900">Sarkar Sathi Assistant</h1>
-                <p className="text-xs text-navy-500">Powered by Qwen3-Max • Verified government data</p>
+                <h1 className="text-xl font-bold text-navy-900">{t('assistant.brandTitle', language)}</h1>
+                <p className="text-xs text-navy-500">{t('assistant.powered', language)}</p>
               </div>
             </div>
             <div className="flex items-center gap-2">
@@ -617,10 +627,10 @@ export default function AssistantPage() {
                 className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
                   isVoiceModeOpen ? 'bg-cyan-100 text-cyan-800' : 'bg-linear-to-r from-emerald-700 to-cyan-700 text-white shadow-md shadow-emerald-900/20 hover:from-emerald-600 hover:to-cyan-600'
                 }`}
-                aria-label={isVoiceModeOpen ? 'Exit Voice Mode' : 'Open Voice Mode'}
+                aria-label={isVoiceModeOpen ? t('assistant.exitVoice', language) : t('assistant.openVoice', language)}
               >
                 <Headphones className="w-4 h-4" />
-                <span className="hidden sm:inline">Voice Mode</span>
+                <span className="hidden sm:inline">{t('assistant.voiceMode', language)}</span>
               </button>
               <button
                 onClick={() => setShowProfile(!showProfile)}
@@ -629,7 +639,7 @@ export default function AssistantPage() {
                 }`}
               >
                 <UserCircle className="w-4 h-4" />
-                <span className="hidden sm:inline">Profile</span>
+                <span className="hidden sm:inline">{t('assistant.profile', language)}</span>
               </button>
             </div>
           </div>
@@ -748,7 +758,7 @@ export default function AssistantPage() {
                   value={input}
                   onChange={(e) => setInput(e.target.value)}
                   onKeyDown={handleKeyDown}
-                  placeholder="Tell me about your situation..."
+                  placeholder={t('assistant.placeholderSituation', language)}
                   disabled={isLoading}
                   className="flex-1 px-4 py-2.5 bg-navy-50 border border-navy-200 rounded-xl text-sm text-navy-900 placeholder-navy-400 focus:outline-none focus:ring-2 focus:ring-navy-500 focus:border-transparent disabled:opacity-50"
                 />
@@ -756,8 +766,8 @@ export default function AssistantPage() {
                   type="button"
                   onClick={toggleVoiceInput}
                   disabled={isLoading}
-                  aria-label={isListening ? 'Stop voice input' : 'Start voice input'}
-                  title={isListening ? 'Stop voice input' : 'Start voice input'}
+                  aria-label={isListening ? t('assistant.stopVoice', language) : t('assistant.startVoice', language)}
+                  title={isListening ? t('assistant.stopVoice', language) : t('assistant.startVoice', language)}
                   className={`min-w-11 min-h-11 px-3 rounded-xl border transition-colors disabled:opacity-40 disabled:cursor-not-allowed ${
                     isListening
                       ? 'border-red-300 bg-red-50 text-red-600 animate-pulse'
@@ -777,7 +787,7 @@ export default function AssistantPage() {
               </div>
               {isListening && (
                 <p className="mt-2 text-xs text-red-600" role="status">
-                  Listening... / سن رہا ہے...
+                  {t('assistant.listening', language)}
                 </p>
               )}
               {voiceError && (
@@ -795,7 +805,7 @@ export default function AssistantPage() {
             <div className="flex items-center justify-between mb-4">
               <h2 className="font-semibold text-navy-900 flex items-center gap-2">
                 <UserCircle className="w-5 h-5 text-navy-600" />
-                Your Profile
+                {language === 'ur' ? 'آپ کا پروفائل' : 'Your Profile'}
               </h2>
               <button
                 onClick={() => setShowProfile(false)}
@@ -815,12 +825,12 @@ export default function AssistantPage() {
                 ))}
               </div>
             ) : (
-              <p className="text-sm text-navy-500 italic">No information yet. Tell me about yourself to get started.</p>
+              <p className="text-sm text-navy-500 italic">{t('assistant.noInformation', language)}</p>
             )}
             
             {missingInfo.length > 0 && (
               <div className="mt-4 pt-4 border-t border-navy-100">
-                <p className="text-xs font-medium text-navy-500 mb-2">Missing information:</p>
+                <p className="text-xs font-medium text-navy-500 mb-2">{t('assistant.missing', language)}</p>
                 <div className="flex flex-wrap gap-1">
                   {missingInfo.map((info, i) => (
                     <span key={i} className="px-2 py-0.5 bg-yellow-50 text-yellow-700 text-xs rounded-full border border-yellow-200">
@@ -833,7 +843,7 @@ export default function AssistantPage() {
             
             {/* Detected Language */}
             <div className="mt-4 pt-4 border-t border-navy-100">
-              <p className="text-xs font-medium text-navy-500 mb-2">Chat Language:</p>
+              <p className="text-xs font-medium text-navy-500 mb-2">{t('assistant.chatLanguage', language)}</p>
               <div className="flex items-center gap-2">
                 <span className={`px-2 py-0.5 text-xs rounded-full border ${
                   detectedLanguage === 'urdu' ? 'bg-green-50 text-green-700 border-green-200' :
@@ -845,12 +855,12 @@ export default function AssistantPage() {
                    'English'}
                 </span>
               </div>
-              <p className="text-xs text-navy-400 mt-1">I'll respond in your language</p>
+              <p className="text-xs text-navy-400 mt-1">{t('assistant.respondLanguage', language)}</p>
             </div>
             
             <div className="mt-4 pt-4 border-t border-navy-100">
               <p className="text-xs text-navy-500">
-                💡 Your information is only used to find relevant programs and is not stored permanently.
+                💡 {t('assistant.privacy', language)}
               </p>
             </div>
           </div>
@@ -862,7 +872,7 @@ export default function AssistantPage() {
         <div className="flex items-start gap-2">
           <Info className="w-4 h-4 text-amber-600 mt-0.5 shrink-0" />
           <p className="text-xs text-amber-700">
-            Sarkar Sathi provides guidance based on verified government data. Always confirm details with the official source before taking action. Information may change over time.
+            {t('assistant.disclaimerFull', language)}
           </p>
         </div>
       </div>
