@@ -3,7 +3,7 @@ import { Link, useLocation } from 'react-router-dom';
 import { useApp } from '../context/AppContext';
 import { t } from '../data/translations';
 import { 
-  Home, Search, Shield, MessageCircle, User, 
+  Home, Search, Shield, MessageCircle, User, Users,
   Menu, X, Globe, ChevronRight
 } from 'lucide-react';
 import { useState } from 'react';
@@ -16,9 +16,9 @@ export function Navbar() {
   const navItems = [
     { path: '/', label: t('nav.home', language), icon: Home },
     { path: '/programs', label: t('nav.programs', language), icon: Search },
-    { path: '/eligibility', label: t('nav.eligibility', language), icon: Shield },
     { path: '/assistant', label: t('nav.assistant', language), icon: MessageCircle },
     { path: '/my-services', label: t('nav.myServices', language), icon: User },
+    { path: '/about', label: 'About', icon: Users },
   ];
   
   const isActive = (path: string) => location.pathname === path;
@@ -132,14 +132,14 @@ export function Footer() {
               <Link to="/programs" className="block text-sm text-navy-300 hover:text-white transition-colors">
                 {t('nav.programs', language)}
               </Link>
-              <Link to="/eligibility" className="block text-sm text-navy-300 hover:text-white transition-colors">
-                {t('nav.eligibility', language)}
-              </Link>
               <Link to="/assistant" className="block text-sm text-navy-300 hover:text-white transition-colors">
                 {t('nav.assistant', language)}
               </Link>
               <Link to="/my-services" className="block text-sm text-navy-300 hover:text-white transition-colors">
                 {t('nav.myServices', language)}
+              </Link>
+              <Link to="/about" className="block text-sm text-navy-300 hover:text-white transition-colors">
+                About Us
               </Link>
             </div>
           </div>
@@ -175,6 +175,7 @@ function MobileBottomNav() {
     { path: '/programs', label: t('nav.programs', language), icon: Search },
     { path: '/assistant', label: 'Assistant', icon: MessageCircle },
     { path: '/my-services', label: 'My', icon: User },
+    { path: '/about', label: 'About', icon: Users },
   ];
   
   const isActive = (path: string) => location.pathname === path;

@@ -48,22 +48,19 @@ function generateFallbackResponse(query: string): Message {
   
   if (lowerQuery.includes('financial') || lowerQuery.includes('money') || lowerQuery.includes('cash') || lowerQuery.includes('support') || lowerQuery.includes('madad')) {
     responseText = "I can help you find financial support programs. Based on your query, here are some programs that may be relevant:";
-    suggestions = ['Tell me about BISP', 'What about Sehat Card?', 'Show education stipends'];
-  } else if (lowerQuery.includes('scholarship') || lowerQuery.includes('education') || lowerQuery.includes('school') || lowerQuery.includes('study') || lowerQuery.includes('taleem')) {
-    responseText = "Here are education-related programs that may help you:";
-    suggestions = ['What documents do I need?', 'Who is eligible?', 'How to apply?'];
+    suggestions = ['Tell me about BISP', 'What about Sehat Card?'];
   } else if (lowerQuery.includes('health') || lowerQuery.includes('medical') || lowerQuery.includes('hospital') || lowerQuery.includes('sehat') || lowerQuery.includes('صحت')) {
     responseText = "For health-related support, here are relevant programs:";
-    suggestions = ['How to get Sehat Card?', 'What does it cover?', 'Where can I go?'];
+    suggestions = ['How to get Sehat Card?', 'What does it cover?'];
   } else if (lowerQuery.includes('business') || lowerQuery.includes('loan') || lowerQuery.includes('startup') || lowerQuery.includes('karobar')) {
     responseText = "Here are business support programs that may interest you:";
-    suggestions = ['What is the loan amount?', 'Who can apply?', 'What documents are needed?'];
+    suggestions = ['What is the loan amount?', 'Who can apply?'];
   } else if (lowerQuery.includes('housing') || lowerQuery.includes('home') || lowerQuery.includes('house') || lowerQuery.includes('ghar')) {
     responseText = "Here are housing-related programs:";
     suggestions = ['Who is eligible?', 'What are the requirements?'];
-  } else if (lowerQuery.includes('eligib') || lowerQuery.includes('qualif') || lowerQuery.includes('can i apply')) {
-    responseText = "To check your eligibility, I recommend using our Eligibility Checker which will ask you a few questions and match you with relevant programs automatically.";
-    suggestions = [];
+  } else if (lowerQuery.includes('farmer') || lowerQuery.includes('agriculture') || lowerQuery.includes('kisan') || lowerQuery.includes('زراعت')) {
+    responseText = "For farmers and agriculture workers, here are relevant programs:";
+    suggestions = ['What subsidies are available?', 'What documents do I need?'];
   } else if (lowerQuery.includes('document') || lowerQuery.includes('cnic') || lowerQuery.includes('paper')) {
     responseText = "Most government programs require these basic documents:\n\n• Valid CNIC (Computerized National Identity Card)\n• Proof of residence\n• Family registration information (B-Form for children)\n• Income proof (if applicable)\n\nSpecific programs may require additional documents. Check each program's details for the complete list.";
     suggestions = ['What is BISP?', 'Show me programs'];
@@ -71,8 +68,8 @@ function generateFallbackResponse(query: string): Message {
     responseText = "BISP (Benazir Income Support Programme) is Pakistan's largest social safety net program. The main component is Benazir Kafaalat, which provides quarterly cash transfers to eligible low-income families.\n\nTo check if you qualify, you can send your CNIC number to 8500 or visit your nearest BISP tehsil office.";
     suggestions = ['What documents do I need?', 'How to register?'];
   } else {
-    responseText = "I can help you find information about Pakistan's government programs and services. You can ask me about:\n\n• Financial support programs\n• Education and scholarships\n• Health services\n• Business loans\n• Housing programs\n• Required documents\n• Eligibility criteria\n\nWhat would you like to know more about?";
-    suggestions = ['Find financial support', 'Scholarships for students', 'Healthcare programs', 'Business support'];
+    responseText = "I can help you find information about Pakistan's government programs and services. To give you the best guidance, please tell me about your situation:\n\n• What is your monthly income?\n• How many family members do you have?\n• Are you a farmer, employed, or self-employed?\n• Do you have any specific needs (health, financial support, etc.)?\n\nThe more details you share, the better I can help you.";
+    suggestions = ['I have 3 kids and earn 25,000', "I'm a farmer", 'I need health support'];
   }
   
   const programIds = matchedPrograms.slice(0, 3).map(p => p.id);
@@ -92,8 +89,8 @@ export default function AssistantPage() {
     {
       id: '1',
       role: 'assistant',
-      content: "Hello! I'm Sarkar Sathi, your guide to government services. I can help you find programs, understand eligibility, and know what documents you need.\n\nHow can I help you today?",
-      suggestions: ['Find financial support', 'Scholarships for students', 'Healthcare programs', 'Business support'],
+      content: "Assalam o Alaikum! Welcome to Sarkar Sathi.\n\nI'm here to help you find government programs you may be eligible for. To give you the best guidance, I need to understand your situation first.\n\nPlease tell me about yourself:\n• How many family members do you have?\n• What is your monthly income?\n• Are you a farmer, student, or employed?\n• Do you have any specific needs (health, financial support, etc.)?\n\nThe more details you share, the better I can help you find the right programs.",
+      suggestions: ['I have 3 kids and earn 25,000', "I'm a farmer with 5 acres", 'I need health support for my family', 'I want to start a small business'],
     }
   ]);
   const [input, setInput] = useState('');
