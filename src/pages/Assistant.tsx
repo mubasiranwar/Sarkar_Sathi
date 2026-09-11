@@ -6,7 +6,8 @@ import { programs } from '../data/programs';
 import { searchPrograms } from '../lib/programs';
 import { 
   Send, Bot, User, Sparkles, AlertTriangle, 
-  ArrowRight, Search, Info, MessageCircle
+  ArrowRight, Search, Info, MessageCircle,
+  Loader2
 } from 'lucide-react';
 
 interface Message {
@@ -15,38 +16,49 @@ interface Message {
   content: string;
   programs?: string[];
   suggestions?: string[];
+  nextSteps?: string[];
+  documents?: string[];
 }
 
-// Simple rule-based assistant (no API required)
-function generateResponse(query: string): Message {
+interface ApiResponse {
+  answer: string;
+  intent?: string;
+  followUpQuestion?: string | null;
+  recommendedPrograms?: string[];
+  eligibilityConsiderations?: string[];
+  documents?: string[];
+  nextSteps?: string[];
+  sources?: string[];
+}
+
+// Loading messages for progressive UX
+const loadingMessages = [
+  'Understanding your request...',
+  'Finding relevant services...',
+  'Preparing your next steps...',
+];
+
+// Rule-based fallback assistant
+function generateFallbackResponse(query: string): Message {
   const lowerQuery = query.toLowerCase();
-  
-  // Search for relevant programs
   const matchedPrograms = searchPrograms(query);
   
-  // Detect intent
-  let intent = '';
   let responseText = '';
   let suggestions: string[] = [];
   
-  if (lowerQuery.includes('financial') || lowerQuery.includes('money') || lowerQuery.includes('cash') || lowerQuery.includes('support')) {
-    intent = 'financial';
+  if (lowerQuery.includes('financial') || lowerQuery.includes('money') || lowerQuery.includes('cash') || lowerQuery.includes('support') || lowerQuery.includes('madad')) {
     responseText = "I can help you find financial support programs. Based on your query, here are some programs that may be relevant:";
     suggestions = ['Tell me about BISP', 'What about Sehat Card?', 'Show education stipends'];
-  } else if (lowerQuery.includes('scholarship') || lowerQuery.includes('education') || lowerQuery.includes('school') || lowerQuery.includes('study')) {
-    intent = 'education';
+  } else if (lowerQuery.includes('scholarship') || lowerQuery.includes('education') || lowerQuery.includes('school') || lowerQuery.includes('study') || lowerQuery.includes('taleem')) {
     responseText = "Here are education-related programs that may help you:";
     suggestions = ['What documents do I need?', 'Who is eligible?', 'How to apply?'];
-  } else if (lowerQuery.includes('health') || lowerQuery.includes('medical') || lowerQuery.includes('hospital') || lowerQuery.includes('sehat')) {
-    intent = 'health';
+  } else if (lowerQuery.includes('health') || lowerQuery.includes('medical') || lowerQuery.includes('hospital') || lowerQuery.includes('sehat') || lowerQuery.includes('صحت')) {
     responseText = "For health-related support, here are relevant programs:";
     suggestions = ['How to get Sehat Card?', 'What does it cover?', 'Where can I go?'];
-  } else if (lowerQuery.includes('business') || lowerQuery.includes('loan') || lowerQuery.includes('startup')) {
-    intent = 'business';
+  } else if (lowerQuery.includes('business') || lowerQuery.includes('loan') || lowerQuery.includes('startup') || lowerQuery.includes('karobar')) {
     responseText = "Here are business support programs that may interest you:";
     suggestions = ['What is the loan amount?', 'Who can apply?', 'What documents are needed?'];
-  } else if (lowerQuery.includes('housing') || lowerQuery.includes('home') || lowerQuery.includes('house')) {
-    intent = 'housing';
+  } else if (lowerQuery.includes('housing') || lowerQuery.includes('home') || lowerQuery.includes('house') || lowerQuery.includes('ghar')) {
     responseText = "Here are housing-related programs:";
     suggestions = ['Who is eligible?', 'What are the requirements?'];
   } else if (lowerQuery.includes('eligib') || lowerQuery.includes('qualif') || lowerQuery.includes('can i apply')) {
@@ -63,7 +75,6 @@ function generateResponse(query: string): Message {
     suggestions = ['Find financial support', 'Scholarships for students', 'Healthcare programs', 'Business support'];
   }
   
-  // Add matched programs
   const programIds = matchedPrograms.slice(0, 3).map(p => p.id);
   
   return {
@@ -86,16 +97,44 @@ export default function AssistantPage() {
     }
   ]);
   const [input, setInput] = useState('');
-  const [isTyping, setIsTyping] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [loadingMessageIndex, setLoadingMessageIndex] = useState(0);
+  const [apiAvailable, setApiAvailable] = useState<boolean | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  
+  // Check if API is available on mount
+  useEffect(() => {
+    fetch('/api/health')
+      .then(res => res.json())
+      .then(data => {
+        setApiAvailable(data.qwenConfigured === true);
+      })
+      .catch(() => {
+        setApiAvailable(false);
+      });
+  }, []);
+  
+  // Progressive loading messages
+  useEffect(() => {
+    if (!isLoading) return;
+    
+    const interval = setInterval(() => {
+      setLoadingMessageIndex(prev => {
+        if (prev < loadingMessages.length - 1) return prev + 1;
+        return prev;
+      });
+    }, 1500);
+    
+    return () => clearInterval(interval);
+  }, [isLoading]);
   
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages]);
+  }, [messages, isLoading]);
   
-  const handleSend = (text?: string) => {
+  const handleSend = async (text?: string) => {
     const messageText = text || input.trim();
-    if (!messageText) return;
+    if (!messageText || isLoading) return;
     
     // Add user message
     const userMsg: Message = {
@@ -106,14 +145,60 @@ export default function AssistantPage() {
     
     setMessages(prev => [...prev, userMsg]);
     setInput('');
-    setIsTyping(true);
+    setIsLoading(true);
+    setLoadingMessageIndex(0);
     
-    // Simulate thinking delay
-    setTimeout(() => {
-      const response = generateResponse(messageText);
-      setMessages(prev => [...prev, response]);
-      setIsTyping(false);
-    }, 800 + Math.random() * 700);
+    // Try API first
+    if (apiAvailable) {
+      try {
+        // Build conversation history for context
+        const conversationHistory = messages
+          .filter(m => m.role !== 'assistant' || m.id !== '1') // Skip initial greeting
+          .concat(userMsg)
+          .map(m => ({ role: m.role, content: m.content }));
+        
+        const response = await fetch('/api/chat', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ messages: conversationHistory }),
+        });
+        
+        if (!response.ok) {
+          throw new Error('API request failed');
+        }
+        
+        const data: ApiResponse = await response.json();
+        
+        const assistantMsg: Message = {
+          id: (Date.now() + 1).toString(),
+          role: 'assistant',
+          content: data.answer,
+          programs: data.recommendedPrograms && data.recommendedPrograms.length > 0 
+            ? data.recommendedPrograms 
+            : undefined,
+          suggestions: data.followUpQuestion ? [data.followUpQuestion] : undefined,
+          nextSteps: data.nextSteps,
+          documents: data.documents,
+        };
+        
+        setMessages(prev => [...prev, assistantMsg]);
+      } catch (error) {
+        console.error('[Sarkar Sathi] API error, using fallback:', error);
+        // Fall back to rule-based
+        const fallbackResponse = generateFallbackResponse(messageText);
+        fallbackResponse.id = (Date.now() + 1).toString();
+        setMessages(prev => [...prev, fallbackResponse]);
+      }
+    } else {
+      // Use rule-based fallback
+      // Small delay for UX consistency
+      await new Promise(resolve => setTimeout(resolve, 800 + Math.random() * 500));
+      const fallbackResponse = generateFallbackResponse(messageText);
+      fallbackResponse.id = (Date.now() + 1).toString();
+      setMessages(prev => [...prev, fallbackResponse]);
+    }
+    
+    setIsLoading(false);
   };
   
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -132,6 +217,12 @@ export default function AssistantPage() {
         </div>
         <h1 className="text-2xl font-bold text-navy-900">{t('assistant.title', language)}</h1>
         <p className="text-navy-500 text-sm mt-1">{t('assistant.subtitle', language)}</p>
+        {apiAvailable === false && (
+          <p className="text-xs text-amber-600 mt-2 flex items-center justify-center gap-1">
+            <AlertTriangle className="w-3 h-3" />
+            Using offline mode — AI assistant unavailable
+          </p>
+        )}
       </div>
       
       {/* Chat Area */}
@@ -186,6 +277,36 @@ export default function AssistantPage() {
                   </div>
                 )}
                 
+                {/* Next Steps */}
+                {msg.nextSteps && msg.nextSteps.length > 0 && (
+                  <div className="mt-2 p-3 bg-green-50 border border-green-200 rounded-xl">
+                    <p className="text-xs font-semibold text-green-700 mb-1">Next Steps:</p>
+                    <ul className="space-y-1">
+                      {msg.nextSteps.map((step, i) => (
+                        <li key={i} className="text-xs text-green-700 flex items-start gap-1.5">
+                          <span className="w-1 h-1 rounded-full bg-green-500 mt-1.5 shrink-0"></span>
+                          {step}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+                
+                {/* Documents */}
+                {msg.documents && msg.documents.length > 0 && (
+                  <div className="mt-2 p-3 bg-blue-50 border border-blue-200 rounded-xl">
+                    <p className="text-xs font-semibold text-blue-700 mb-1">Documents you may need:</p>
+                    <ul className="space-y-1">
+                      {msg.documents.map((doc, i) => (
+                        <li key={i} className="text-xs text-blue-700 flex items-start gap-1.5">
+                          <span className="w-1 h-1 rounded-full bg-blue-500 mt-1.5 shrink-0"></span>
+                          {doc}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+                
                 {/* Suggestions */}
                 {msg.suggestions && msg.suggestions.length > 0 && (
                   <div className="mt-2 flex flex-wrap gap-1.5">
@@ -204,17 +325,16 @@ export default function AssistantPage() {
             </div>
           ))}
           
-          {/* Typing indicator */}
-          {isTyping && (
-            <div className="flex gap-3">
+          {/* Loading indicator */}
+          {isLoading && (
+            <div className="flex gap-3 animate-fade-in">
               <div className="w-8 h-8 rounded-full bg-navy-100 flex items-center justify-center shrink-0">
                 <Bot className="w-4 h-4 text-navy-700" />
               </div>
               <div className="bg-navy-50 rounded-2xl rounded-tl-sm px-4 py-3">
-                <div className="flex gap-1">
-                  <span className="w-2 h-2 bg-navy-300 rounded-full animate-pulse-soft"></span>
-                  <span className="w-2 h-2 bg-navy-300 rounded-full animate-pulse-soft" style={{animationDelay: '0.2s'}}></span>
-                  <span className="w-2 h-2 bg-navy-300 rounded-full animate-pulse-soft" style={{animationDelay: '0.4s'}}></span>
+                <div className="flex items-center gap-2">
+                  <Loader2 className="w-3.5 h-3.5 text-navy-500 animate-spin" />
+                  <span className="text-xs text-navy-500">{loadingMessages[loadingMessageIndex]}</span>
                 </div>
               </div>
             </div>
@@ -232,14 +352,19 @@ export default function AssistantPage() {
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={handleKeyDown}
               placeholder={t('assistant.placeholder', language)}
-              className="flex-1 px-4 py-2.5 bg-navy-50 border border-navy-200 rounded-xl text-sm text-navy-900 placeholder-navy-400 focus:outline-none focus:ring-2 focus:ring-navy-500 focus:border-transparent"
+              disabled={isLoading}
+              className="flex-1 px-4 py-2.5 bg-navy-50 border border-navy-200 rounded-xl text-sm text-navy-900 placeholder-navy-400 focus:outline-none focus:ring-2 focus:ring-navy-500 focus:border-transparent disabled:opacity-50"
             />
             <button
               onClick={() => handleSend()}
-              disabled={!input.trim()}
+              disabled={!input.trim() || isLoading}
               className="px-4 py-2.5 bg-navy-800 text-white rounded-xl hover:bg-navy-700 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
             >
-              <Send className="w-4 h-4" />
+              {isLoading ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <Send className="w-4 h-4" />
+              )}
             </button>
           </div>
         </div>
