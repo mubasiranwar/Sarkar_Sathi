@@ -106,6 +106,7 @@ export default function AssistantPage() {
   const [isListening, setIsListening] = useState(false);
   const [voiceError, setVoiceError] = useState('');
   const [isVoiceModeOpen, setIsVoiceModeOpen] = useState(false);
+  const [voiceLanguage, setVoiceLanguage] = useState<'en' | 'ur'>(language);
   const [isVoiceMuted, setIsVoiceMuted] = useState(false);
   const [voiceUserCaption, setVoiceUserCaption] = useState('');
   const [voiceAssistantCaption, setVoiceAssistantCaption] = useState('');
@@ -124,6 +125,10 @@ export default function AssistantPage() {
       return [{ ...prev[0], content: welcomeMessage(language), suggestions: welcomeSuggestions(language) }];
     });
   }, [language]);
+
+  useEffect(() => {
+    if (!isVoiceModeOpen) setVoiceLanguage(language);
+  }, [language, isVoiceModeOpen]);
   
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -330,7 +335,7 @@ export default function AssistantPage() {
     setIsLoading(false);
   };
 
-  const startRecognition = () => {
+  const startRecognition = (requestedVoiceLanguage: 'en' | 'ur' = voiceLanguage) => {
     const SpeechRecognitionAPI = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (!SpeechRecognitionAPI) {
       setVoiceError(t('assistant.voiceUnsupported', language));
@@ -346,7 +351,7 @@ export default function AssistantPage() {
     isListeningRef.current = true;
 
     const recognition = new SpeechRecognitionAPI();
-    recognition.lang = language === 'ur' ? 'ur-PK' : 'en-US';
+    recognition.lang = requestedVoiceLanguage === 'ur' ? 'ur-PK' : 'en-US';
     recognition.interimResults = true;
     recognition.continuous = true;
     recognitionRef.current = recognition;
@@ -427,12 +432,15 @@ export default function AssistantPage() {
       return;
     }
     setVoiceAssistantCaption('');
+    setVoiceLanguage(language);
     setIsVoiceModeOpen(true);
-    startRecognition();
+    startRecognition(language);
   };
 
   const switchVoiceLanguage = () => {
-    setLanguage(language === 'ur' ? 'en' : 'ur');
+    const nextLanguage = voiceLanguage === 'ur' ? 'en' : 'ur';
+    setVoiceLanguage(nextLanguage);
+    setLanguage(nextLanguage);
     if (isListening) {
       manualStopRef.current = true;
       isListeningRef.current = false;
@@ -930,7 +938,7 @@ export default function AssistantPage() {
         isMuted={isVoiceMuted}
         userTranscript={voiceUserCaption || input}
         assistantTranscript={voiceAssistantCaption}
-        language={language}
+        language={voiceLanguage}
         onMuteToggle={() => {
           setIsVoiceMuted(prev => {
             const nextMuted = !prev;

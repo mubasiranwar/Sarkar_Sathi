@@ -305,6 +305,24 @@ const CRITICAL_LANGUAGE_DIRECTIVE = `CRITICAL DIRECTIVE - LANGUAGE ENFORCEMENT:
 - IF the user writes in English, reply in English.
 - Do not mix languages unless citing an official acronym like BISP or NADRA.`;
 
+const URDU_MODEL_CONFIG = {
+  model: process.env.QWEN_URDU_MODEL || process.env.QWEN_MODEL || 'Qwen/Qwen3-Max',
+  temperature: 0.35,
+  systemPrompt: `${SYSTEM_PROMPT}
+
+آپ پاکستان کے سرکاری معلوماتی اسسٹنٹ "سرکار ساتھی" ہیں۔
+اہم ترین ہدایت:
+1. صارف کے ساتھ صرف اور صرف سلیس، شائستہ اور آسان اردو رسم الخط میں گفتگو کریں۔
+2. انگریزی میں جواب دینا سختی سے منع ہے۔ تمام حکومتی اسکیموں، اہلیت کے معیار، اور ضروری دستاویزات کے نام اردو میں بتائیں۔
+3. صارف کے جواب کی تصدیق کریں اور اگر مزید معلومات درکار ہوں تو صرف اردو میں پوچھیں۔`,
+};
+
+const ENGLISH_MODEL_CONFIG = {
+  model: process.env.QWEN_MODEL || 'Qwen/Qwen3-Max',
+  temperature: 0.5,
+  systemPrompt: SYSTEM_PROMPT,
+};
+
 function searchPrograms(query) {
   if (!query.trim()) return verifiedPrograms;
   const normalizedQuery = query.toLowerCase().trim();
@@ -361,7 +379,6 @@ Verified: ${p.source.verifiedAt}`).join('\n\n---\n\n');
 export function createChatHandler() {
   return async function handleChat(messages, profile = {}, language = 'english') {
     const apiKey = process.env.QWEN_API_KEY;
-    const model = process.env.QWEN_MODEL || 'Qwen/Qwen3-Max';
     const baseUrl = process.env.QWEN_BASE_URL || 'https://api-inference.modelscope.ai/v1';
     
     if (!apiKey) {
@@ -372,12 +389,11 @@ export function createChatHandler() {
     const query = lastUserMessage?.content || '';
     const programContext = buildProgramContext(query);
     
-    const client = new OpenAI({ apiKey, baseURL: baseUrl });
-    
     const hasUrduScript = hasUrduCharacters(query);
     const romanUrduPattern = /\b(mujhe|aap|apka|apni|hai|hain|madad|chahiye|kaise|kya|mera|meri|mere|ke liye|batayein|program|bachay|bache)\b/i;
     const isRomanUrdu = !hasUrduScript && romanUrduPattern.test(query);
     const isUrduScript = language === 'ur' || language === 'urdu' || hasUrduScript;
+    const selectedConfig = isUrduScript ? URDU_MODEL_CONFIG : ENGLISH_MODEL_CONFIG;
     const languageInstruction = isUrduScript
       ? `
 
@@ -400,7 +416,7 @@ CRITICAL LANGUAGE ENFORCEMENT RULE:
 1. The user's latest message and active session are English.
 2. Reply entirely in clear, natural English.`;
     
-    const systemMessage = `${CRITICAL_LANGUAGE_DIRECTIVE}\n\n${SYSTEM_PROMPT}${languageInstruction}\n\n=== CURRENT USER PROFILE ===\n${JSON.stringify(profile, null, 2)}\n=== END PROFILE ===\n\n=== VERIFIED PROGRAM DATA ===\n${programContext}\n=== END PROGRAMS ===\n\nUse ONLY the programs listed above. Reference them by their ID.`;
+    const systemMessage = `${CRITICAL_LANGUAGE_DIRECTIVE}\n\n${selectedConfig.systemPrompt}${languageInstruction}\n\n=== CURRENT USER PROFILE ===\n${JSON.stringify(profile, null, 2)}\n=== END PROFILE ===\n\n=== VERIFIED PROGRAM DATA ===\n${programContext}\n=== END PROGRAMS ===\n\nUse ONLY the programs listed above. Reference them by their ID.`;
 
     const languageAwareMessages = messages.map((message, index) => {
       if (index !== messages.length - 1 || message.role !== 'user') {
@@ -416,13 +432,14 @@ CRITICAL LANGUAGE ENFORCEMENT RULE:
       };
     });
     
+    const client = new OpenAI({ apiKey, baseURL: baseUrl });
     const completion = await client.chat.completions.create({
-      model,
+      model: selectedConfig.model,
       messages: [
         { role: 'system', content: systemMessage },
         ...languageAwareMessages
       ],
-      temperature: 0.7,
+      temperature: selectedConfig.temperature,
       max_tokens: 1500,
     });
     
