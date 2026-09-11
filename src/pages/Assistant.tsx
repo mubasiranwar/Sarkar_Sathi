@@ -121,6 +121,7 @@ export default function AssistantPage() {
   const manualStopRef = useRef(false);
   const voiceTurnSubmittingRef = useRef(false);
   const voiceSilenceTimerRef = useRef<number | null>(null);
+  const voiceLocaleIndexRef = useRef(0);
   const { isSpeaking, isPaused, speak, pause, resume, stop } = useSpeechSynthesis();
   const loadingMessages = [1, 2, 3, 4].map(index => t(`assistant.loading.${index}`, language));
 
@@ -368,10 +369,12 @@ export default function AssistantPage() {
     voiceInputPrefixRef.current = input.trim();
     manualStopRef.current = false;
     voiceTurnSubmittingRef.current = false;
+    voiceLocaleIndexRef.current = 0;
     isListeningRef.current = true;
 
     const recognition = new SpeechRecognitionAPI();
-    recognition.lang = requestedVoiceLanguage === 'ur' ? 'ur-PK' : 'en-US';
+    const voiceLocales = requestedVoiceLanguage === 'ur' ? ['ur-PK', 'ur-IN', 'ur'] : ['en-US'];
+    recognition.lang = voiceLocales[voiceLocaleIndexRef.current];
     recognition.interimResults = true;
     recognition.continuous = true;
     recognition.maxAlternatives = 1;
@@ -411,8 +414,9 @@ export default function AssistantPage() {
       }
     };
     recognition.onerror = (event) => {
-      if (event.error === 'language-not-supported' && requestedVoiceLanguage === 'ur' && recognition.lang === 'ur-PK') {
-        recognition.lang = 'ur';
+      if (event.error === 'language-not-supported' && requestedVoiceLanguage === 'ur' && voiceLocaleIndexRef.current < voiceLocales.length - 1) {
+        voiceLocaleIndexRef.current += 1;
+        recognition.lang = voiceLocales[voiceLocaleIndexRef.current];
         try {
           recognition.start();
           return;
@@ -509,6 +513,9 @@ export default function AssistantPage() {
       isListeningRef.current = false;
       recognitionRef.current?.stop();
       setIsListening(false);
+      window.setTimeout(() => {
+        if (isVoiceModeOpen) startRecognition(nextLanguage);
+      }, 0);
     }
   };
 
