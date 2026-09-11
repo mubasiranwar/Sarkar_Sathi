@@ -1,0 +1,17 @@
+services:
+  - type: web
+    name: sarkar-sathi
+    runtime: node
+    buildCommand: npm install && npm run build
+    startCommand: npm start
+    envVars:
+      - key: QWEN_API_KEY
+        sync: false
+      - key: QWEN_MODEL
+        value: Qwen/Qwen3-Max
+      - key: QWEN_BASE_URL
+        value: https://api-inference.modelscope.ai/v1
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 3000
