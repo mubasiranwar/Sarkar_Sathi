@@ -8,8 +8,57 @@ import { getRecommendedPrograms, getEligibilityStatusText, getEligibilityStatusC
 import { 
   Send, Bot, User, Sparkles, AlertTriangle, 
   ArrowRight, Search, Info, MessageCircle,
-  Loader2, UserCircle, X, ExternalLink, CheckCircle2
+  Loader2, UserCircle, X, ExternalLink, CheckCircle2, Mic, MicOff
 } from 'lucide-react';
+
+interface SpeechRecognitionAlternativeResult {
+  transcript: string;
+  confidence: number;
+}
+
+interface SpeechRecognitionResult {
+  isFinal: boolean;
+  length: number;
+  [index: number]: SpeechRecognitionAlternativeResult;
+}
+
+interface SpeechRecognitionResultList {
+  length: number;
+  [index: number]: SpeechRecognitionResult;
+}
+
+interface SpeechRecognitionEvent extends Event {
+  resultIndex: number;
+  results: SpeechRecognitionResultList;
+}
+
+interface SpeechRecognitionErrorEvent extends Event {
+  error: string;
+}
+
+interface SpeechRecognitionInstance {
+  lang: string;
+  interimResults: boolean;
+  continuous: boolean;
+  onstart: (() => void) | null;
+  onresult: ((event: SpeechRecognitionEvent) => void) | null;
+  onerror: ((event: SpeechRecognitionErrorEvent) => void) | null;
+  onend: (() => void) | null;
+  start: () => void;
+  stop: () => void;
+  abort: () => void;
+}
+
+interface SpeechRecognitionConstructor {
+  new (): SpeechRecognitionInstance;
+}
+
+declare global {
+  interface Window {
+    SpeechRecognition?: SpeechRecognitionConstructor;
+    webkitSpeechRecognition?: SpeechRecognitionConstructor;
+  }
+}
 
 interface Message {
   id: string;
@@ -44,7 +93,12 @@ export default function AssistantPage() {
   const [userProfile, setUserProfile] = useState<UserProfile>({});
   const [showProfile, setShowProfile] = useState(false);
   const [detectedLanguage, setDetectedLanguage] = useState<'urdu' | 'roman_urdu' | 'english'>('english');
+  const [isListening, setIsListening] = useState(false);
+  const [voiceError, setVoiceError] = useState('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const recognitionRef = useRef<SpeechRecognitionInstance | null>(null);
+  const voiceTranscriptRef = useRef('');
+  const voiceInputPrefixRef = useRef('');
   
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -59,7 +113,7 @@ export default function AssistantPage() {
   }, [isLoading]);
   
   const handleSend = async (text?: string) => {
-    const messageText = text || input.trim();
+    const messageText = text ?? input.trim();
     if (!messageText || isLoading) return;
     
     // Detect language of user message
@@ -235,6 +289,78 @@ export default function AssistantPage() {
     setMessages(prev => [...prev, assistantMsg]);
     setIsLoading(false);
   };
+
+  const toggleVoiceInput = () => {
+    if (isListening) {
+      recognitionRef.current?.stop();
+      return;
+    }
+
+    const SpeechRecognitionAPI = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SpeechRecognitionAPI) {
+      setVoiceError('Voice input is not supported in this browser. Please type your message.');
+      return;
+    }
+
+    setVoiceError('');
+    voiceTranscriptRef.current = '';
+    voiceInputPrefixRef.current = input.trim();
+
+    const recognition = new SpeechRecognitionAPI();
+    recognition.lang = language === 'ur' ? 'ur-PK' : 'en-US';
+    recognition.interimResults = true;
+    recognition.continuous = false;
+    recognitionRef.current = recognition;
+
+    recognition.onstart = () => setIsListening(true);
+    recognition.onresult = (event) => {
+      let finalTranscript = '';
+      let interimTranscript = '';
+      for (let index = event.resultIndex; index < event.results.length; index += 1) {
+        const transcript = event.results[index][0].transcript;
+        if (event.results[index].isFinal) {
+          finalTranscript += transcript;
+        } else {
+          interimTranscript += transcript;
+        }
+      }
+
+      voiceTranscriptRef.current = `${voiceTranscriptRef.current} ${finalTranscript}`.trim();
+      const liveTranscript = `${voiceTranscriptRef.current} ${interimTranscript}`.trim();
+      setInput([voiceInputPrefixRef.current, liveTranscript].filter(Boolean).join(' '));
+    };
+    recognition.onerror = (event) => {
+      setIsListening(false);
+      if (event.error !== 'aborted') {
+        setVoiceError('Voice input is not supported in this browser. Please type your message.');
+      }
+    };
+    recognition.onend = () => {
+      setIsListening(false);
+      recognitionRef.current = null;
+      const transcript = voiceTranscriptRef.current.trim();
+      if (transcript) {
+        handleSend([voiceInputPrefixRef.current, transcript].filter(Boolean).join(' '));
+      }
+    };
+
+    try {
+      recognition.start();
+    } catch (error) {
+      recognitionRef.current = null;
+      setIsListening(false);
+      setVoiceError('Voice input is not supported in this browser. Please type your message.');
+    }
+  };
+
+  useEffect(() => {
+    return () => {
+      if (recognitionRef.current) {
+        recognitionRef.current.onend = null;
+        recognitionRef.current.abort();
+      }
+    };
+  }, []);
   
   const generateProfileUpdateResponse = (profile: UserProfile, message: string): string => {
     const lang = detectedLanguage;
@@ -553,6 +679,21 @@ export default function AssistantPage() {
                   className="flex-1 px-4 py-2.5 bg-navy-50 border border-navy-200 rounded-xl text-sm text-navy-900 placeholder-navy-400 focus:outline-none focus:ring-2 focus:ring-navy-500 focus:border-transparent disabled:opacity-50"
                 />
                 <button
+                  type="button"
+                  onClick={toggleVoiceInput}
+                  disabled={isLoading}
+                  aria-label={isListening ? 'Stop voice input' : 'Start voice input'}
+                  title={isListening ? 'Stop voice input' : 'Start voice input'}
+                  className={`min-w-11 min-h-11 px-3 rounded-xl border transition-colors disabled:opacity-40 disabled:cursor-not-allowed ${
+                    isListening
+                      ? 'border-red-300 bg-red-50 text-red-600 animate-pulse'
+                      : 'border-navy-200 bg-white text-navy-600 hover:bg-navy-50 hover:border-navy-300'
+                  }`}
+                >
+                  {isListening ? <MicOff className="w-4 h-4 mx-auto" /> : <Mic className="w-4 h-4 mx-auto" />}
+                </button>
+                <button
+                  type="button"
                   onClick={() => handleSend()}
                   disabled={!input.trim() || isLoading}
                   className="px-4 py-2.5 bg-navy-800 text-white rounded-xl hover:bg-navy-700 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
@@ -560,6 +701,16 @@ export default function AssistantPage() {
                   {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
                 </button>
               </div>
+              {isListening && (
+                <p className="mt-2 text-xs text-red-600" role="status">
+                  Listening... / سن رہا ہے...
+                </p>
+              )}
+              {voiceError && (
+                <p className="mt-2 text-xs text-amber-700" role="alert">
+                  {voiceError}
+                </p>
+              )}
             </div>
           </div>
         </div>
