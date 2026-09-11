@@ -137,8 +137,8 @@ export default function AssistantPage() {
     if (!messageText || isLoading) return;
     
     // Detect language of user message
-    const userLanguage = detectLanguage(messageText);
-    setDetectedLanguage(userLanguage);
+    const currentLang = detectLanguage(messageText);
+    setDetectedLanguage(currentLang);
     
     // Add user message
     const userMsg: Message = {
@@ -166,7 +166,7 @@ export default function AssistantPage() {
             content: m.content
           })),
           profile: updatedProfile,
-          language: language === 'ur' ? 'urdu' : userLanguage
+          language: currentLang
         }),
       });
       
@@ -196,14 +196,17 @@ export default function AssistantPage() {
           suggestions: data.recommendedPrograms && data.recommendedPrograms.length > 0 
             ? data.recommendedPrograms.map((id: string) => {
                 const prog = verifiedPrograms.find(p => p.id === id);
-                return prog ? `Tell me about ${prog.name}` : '';
+                if (!prog) return '';
+                if (currentLang === 'urdu') return `مجھے ${prog.nameUrdu || prog.name} کے بارے میں بتائیں`;
+                if (currentLang === 'roman_urdu') return `Mujhe ${prog.name} ke bare mein batayein`;
+                return `Tell me about ${prog.name}`;
               }).filter(Boolean)
             : undefined,
         };
         
         setMessages(prev => [...prev, assistantMsg]);
         setVoiceAssistantCaption(responseContent);
-        if (isVoiceModeOpen && !isVoiceMuted) speak(responseContent, userLanguage);
+        if (isVoiceModeOpen && !isVoiceMuted) speak(responseContent, currentLang);
         setIsLoading(false);
         return;
       }
@@ -228,7 +231,11 @@ export default function AssistantPage() {
       const program = verifiedPrograms.find(p => p.id === intentResult.programId);
       if (program) {
         responseContent = generateProgramDetailResponse(program);
-        suggestions = ['What documents do I need?', 'How do I apply?', 'Check my eligibility'];
+        suggestions = currentLang === 'urdu'
+          ? ['کون سی دستاویزات درکار ہیں؟', 'درخواست کیسے دوں؟', 'میری اہلیت چیک کریں']
+          : currentLang === 'roman_urdu'
+          ? ['Mujhe kaun se documents chahiye?', 'Apply kaise karoon?', 'Meri eligibility check karein']
+          : ['What documents do I need?', 'How do I apply?', 'Check my eligibility'];
       }
     } else if (intentResult.intent === 'documents' || intentResult.intent === 'application_process') {
       if (updatedProfile.currentProgram) {
@@ -252,7 +259,7 @@ export default function AssistantPage() {
         responseContent = generateRecommendationResponse(updatedProfile, topRecommendations, missingInfo);
         
         if (missingInfo.length > 0) {
-          const nextQuestion = getNextQuestion(updatedProfile, missingInfo, detectedLanguage);
+          const nextQuestion = getNextQuestion(updatedProfile, missingInfo, currentLang);
           if (nextQuestion) {
             responseContent += `\n\n---\n\n${nextQuestion}`;
           }
@@ -263,34 +270,34 @@ export default function AssistantPage() {
           return prog ? `Tell me about ${prog.name}` : '';
         }).filter(Boolean);
       } else {
-        responseContent = detectedLanguage === 'urdu' 
+        responseContent = currentLang === 'urdu'
           ? "آپ کی معلومات کی بنیاد پر، ہمارے ڈیٹا میں کوئی مماثل پروگرام نہیں ملا۔ کیا آپ بتا سکتے ہیں کہ آپ کو کس قسم کی مدد چاہیے؟"
-          : detectedLanguage === 'roman_urdu'
+          : currentLang === 'roman_urdu'
           ? "Aap ki maloomat ki bina par, hamare data mein koi mumasil program nahi mila. Kya aap bata sakte hain ke aap ko kis qisam ki madad chahiye?"
           : "Based on what you've shared, I couldn't find any matching programs. Could you tell me more about what kind of support you're looking for?";
         if (missingInfo.length > 0) {
-          const nextQuestion = getNextQuestion(updatedProfile, missingInfo, detectedLanguage);
+          const nextQuestion = getNextQuestion(updatedProfile, missingInfo, currentLang);
           if (nextQuestion) {
             responseContent += `\n\n${nextQuestion}`;
           }
         }
       }
     } else if (missingInfo.length > 0) {
-      const nextQuestion = getNextQuestion(updatedProfile, missingInfo, detectedLanguage);
-      responseContent = generateProfileUpdateResponse(updatedProfile, messageText);
+      const nextQuestion = getNextQuestion(updatedProfile, missingInfo, currentLang);
+      responseContent = generateProfileUpdateResponse(updatedProfile, messageText, currentLang);
       if (nextQuestion) {
         responseContent += `\n\n${nextQuestion}`;
       }
-      suggestions = detectedLanguage === 'urdu'
-        ? ['صحت کی مدد', 'مالی مدد', 'کاروبار شروع کرنا']
-        : detectedLanguage === 'roman_urdu'
+      suggestions = currentLang === 'urdu'
+        ? ['مجھے مالی معاونت چاہیے', 'میں کاروبار شروع کرنا چاہتا ہوں', 'مجھے صحت کی سہولت چاہیے']
+        : currentLang === 'roman_urdu'
         ? ['sehat ki madad', 'maali madad', 'karobar shuru karna']
         : ['I need health support', 'I need financial help', 'I want to start a business'];
     } else {
-      if (detectedLanguage === 'urdu') {
+      if (currentLang === 'urdu') {
         responseContent = "شکریہ! بہتر پروگرام تلاش کرنے کے لیے، بتائیں آپ کو کس قسم کی مدد چاہیے؟\n\n• صحت یا طبی مدد\n• مالی امداد\n• تعلیمی مدد\n• کاروبار یا زراعت کے قرضے\n• مہارت کی تربیت\n\nآپ کے لیے کیا سب سے مفید ہوگا؟";
         suggestions = ['صحت کی مدد', 'مالی امداد', 'کاروباری قرض', 'تعلیمی مدد'];
-      } else if (detectedLanguage === 'roman_urdu') {
+      } else if (currentLang === 'roman_urdu') {
         responseContent = "Shukriya! Behtar program talash karne ke liye, batayein aap ko kis qisam ki madad chahiye?\n\n• Sehat ya tibbi madad\n• Maali imdaad\n• Taleemi madad\n• Karobar ya zirat ke qarzay\n• Maharat ki tarbeet\n\nAap ke liye kya sab se mufeed hoga?";
         suggestions = ['sehat ki madad', 'maali imdaad', 'karobar qarz', 'taleemi madad'];
       } else {
@@ -309,7 +316,7 @@ export default function AssistantPage() {
     
     setMessages(prev => [...prev, assistantMsg]);
     setVoiceAssistantCaption(responseContent);
-    if (isVoiceModeOpen && !isVoiceMuted) speak(responseContent, detectedLanguage);
+    if (isVoiceModeOpen && !isVoiceMuted) speak(responseContent, currentLang);
     setIsLoading(false);
   };
 
@@ -436,8 +443,11 @@ export default function AssistantPage() {
     };
   }, [stop]);
   
-  const generateProfileUpdateResponse = (profile: UserProfile, message: string): string => {
-    const lang = detectedLanguage;
+  const generateProfileUpdateResponse = (
+    profile: UserProfile,
+    message: string,
+    lang: 'urdu' | 'roman_urdu' | 'english' = detectedLanguage
+  ): string => {
     
     // Urdu responses
     if (lang === 'urdu') {

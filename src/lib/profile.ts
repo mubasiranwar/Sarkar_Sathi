@@ -217,34 +217,19 @@ export function getNextQuestion(
 
 // Detect language of the message
 export function detectLanguage(message: string): 'urdu' | 'roman_urdu' | 'english' {
-  // Check for Urdu script (Unicode range for Urdu/Arabic characters)
-  const urduScriptRegex = /[\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF\uFB50-\uFDFF\uFE70-\uFEFF]/;
-  
-  if (urduScriptRegex.test(message)) {
+  if (!message) return 'english';
+
+  // Check Urdu/Arabic script before any Latin-language heuristics.
+  if (/[\u0600-\u06FF]/.test(message)) {
     return 'urdu';
   }
-  
-  // Check for Roman Urdu keywords
-  const romanUrduKeywords = [
-    'mera', 'meri', 'hai', 'hain', 'kya', 'kahan', 'kab', 'kaun',
-    'mujhe', 'tumhe', 'aap', 'main', 'hum', 'woh', 'yeh',
-    'kar', 'karna', 'chahiye', 'sakta', 'sakti', 'tha', 'thi', 'the',
-    'aur', 'ya', 'lekin', 'kyunke', 'isliye', 'agar', 'toh',
-    'paisa', 'rupay', 'kamai', 'nokri', 'kaam', 'business',
-    'bachay', 'bache', 'beti', 'beta', 'biwi', 'shohar',
-    'zaroorat', 'madad', 'sahulat', 'sehat', 'taleem'
-  ];
-  
-  const lowerMessage = message.toLowerCase();
-  const romanUrduCount = romanUrduKeywords.filter(keyword => 
-    lowerMessage.includes(keyword)
-  ).length;
-  
-  // If 2 or more Roman Urdu keywords detected, consider it Roman Urdu
-  if (romanUrduCount >= 2) {
+
+  const romanUrduKeywords = ['mera', 'meri', 'mere', 'bachay', 'madad', 'chahiye', 'kisan', 'aamdan', 'hai', 'hain', 'kaam', 'aur'];
+  const words = message.toLowerCase().split(/\s+/).map(word => word.replace(/[^a-z]/g, ''));
+  if (words.some(word => romanUrduKeywords.includes(word))) {
     return 'roman_urdu';
   }
-  
+
   return 'english';
 }
 
