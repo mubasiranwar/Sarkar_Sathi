@@ -82,6 +82,11 @@ const welcomeSuggestions = (language: 'en' | 'ur') => language === 'ur'
   ? ['میرے 3 بچے ہیں اور آمدن 25,000 ہے', 'میں کسان ہوں اور 5 ایکڑ زمین ہے', 'مجھے صحت کی سہولت درکار ہے', 'روزگار کی اسکیم کے بارے میں بتائیں']
   : ['I have 3 kids and earn 25,000', "I'm a farmer with 5 acres", 'mujhe sehat ki madad chahiye', 'میرے 3 بچے ہیں اور آمدن 25,000 ہے'];
 
+function responseMatchesLanguage(text: string, language: 'urdu' | 'roman_urdu' | 'english'): boolean {
+  if (language !== 'urdu') return true;
+  return /[\u0600-\u06FF]/.test(text);
+}
+
 export default function AssistantPage() {
   const { language, setLanguage } = useApp();
   const [messages, setMessages] = useState<Message[]>([
@@ -186,6 +191,10 @@ export default function AssistantPage() {
         if (data.followUpQuestion) {
           responseContent += `\n\n---\n\n${data.followUpQuestion}`;
         }
+
+        if (!responseMatchesLanguage(responseContent, currentLang)) {
+          console.warn('Qwen returned a non-Urdu response for an Urdu request; using local Urdu fallback.');
+        } else {
         
         // Create assistant message
         const assistantMsg: Message = {
@@ -209,6 +218,7 @@ export default function AssistantPage() {
         if (isVoiceModeOpen && !isVoiceMuted) speak(responseContent, currentLang);
         setIsLoading(false);
         return;
+        }
       }
     } catch (error) {
       console.error('API error, using local logic:', error);
