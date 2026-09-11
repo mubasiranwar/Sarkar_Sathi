@@ -2,9 +2,8 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import { useApp } from '../context/AppContext';
 import { t } from '../data/translations';
-import { programs } from '../data/programs';
+import { verifiedPrograms } from '../data/verifiedPrograms';
 import { getRecommendedPrograms } from '../lib/recommendations';
-import { getRecommendedPrograms as getRecs } from '../lib/recommendations';
 import { 
   Bookmark, Search, FileText, CheckCircle2, 
   AlertCircle, Clock, ArrowRight, User, 
@@ -15,7 +14,7 @@ export default function MyServicesPage() {
   const { language, savedPrograms, toggleSaveProgram, documentChecklist, setDocumentStatus, userProfile } = useApp();
   
   const savedProgramData = savedPrograms
-    .map(id => programs.find(p => p.id === id))
+    .map(id => verifiedPrograms.find(p => p.id === id))
     .filter(Boolean);
   
   // Get all documents from saved programs
@@ -23,9 +22,9 @@ export default function MyServicesPage() {
   const uniqueDocuments = [...new Set(allDocuments)];
   
   // Get recommended programs
-  const recommended = userProfile 
-    ? getRecs(userProfile).slice(0, 3).map(r => r.program)
-    : programs.slice(0, 3);
+  const recommended = (userProfile 
+    ? getRecommendedPrograms(userProfile, verifiedPrograms).slice(0, 3).map(r => verifiedPrograms.find(p => p.id === r.programId)).filter((p): p is NonNullable<typeof p> => p !== undefined)
+    : verifiedPrograms.slice(0, 3)) as typeof verifiedPrograms;
   
   // Next steps
   const nextSteps = [];

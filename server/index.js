@@ -31,7 +31,7 @@ app.get('/api/health', (req, res) => {
 // Chat API endpoint
 app.post('/api/chat', async (req, res) => {
   try {
-    const { messages } = req.body;
+    const { messages, profile } = req.body;
     
     if (!messages || !Array.isArray(messages)) {
       return res.status(400).json({ 
@@ -40,7 +40,7 @@ app.post('/api/chat', async (req, res) => {
     }
     
     console.log(`[Sarkar Sathi API] Processing chat request with ${messages.length} messages`);
-    const response = await handleChat(messages);
+    const response = await handleChat(messages, profile || {});
     
     res.json(response);
   } catch (error) {

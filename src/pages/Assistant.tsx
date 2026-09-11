@@ -1,13 +1,14 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useApp } from '../context/AppContext';
-import { t } from '../data/translations';
-import { programs } from '../data/programs';
-import { searchPrograms } from '../lib/programs';
+import { verifiedPrograms, VerifiedProgram } from '../data/verifiedPrograms';
+import { UserProfile, extractProfileFromMessage, getMissingInformation, getNextQuestion, formatProfileForDisplay } from '../lib/profile';
+import { classifyIntent, getProgramsForIntent } from '../lib/intents';
+import { getRecommendedPrograms, getEligibilityStatusText, getEligibilityStatusColor } from '../lib/recommendations';
 import { 
   Send, Bot, User, Sparkles, AlertTriangle, 
   ArrowRight, Search, Info, MessageCircle,
-  Loader2
+  Loader2, UserCircle, X, ExternalLink, CheckCircle2
 } from 'lucide-react';
 
 interface Message {
@@ -20,68 +21,12 @@ interface Message {
   documents?: string[];
 }
 
-interface ApiResponse {
-  answer: string;
-  intent?: string;
-  followUpQuestion?: string | null;
-  recommendedPrograms?: string[];
-  eligibilityConsiderations?: string[];
-  documents?: string[];
-  nextSteps?: string[];
-  sources?: string[];
-}
-
-// Loading messages for progressive UX
 const loadingMessages = [
   'Understanding your request...',
-  'Finding relevant services...',
-  'Preparing your next steps...',
+  'Analyzing your profile...',
+  'Finding relevant programs...',
+  'Preparing recommendations...',
 ];
-
-// Rule-based fallback assistant
-function generateFallbackResponse(query: string): Message {
-  const lowerQuery = query.toLowerCase();
-  const matchedPrograms = searchPrograms(query);
-  
-  let responseText = '';
-  let suggestions: string[] = [];
-  
-  if (lowerQuery.includes('financial') || lowerQuery.includes('money') || lowerQuery.includes('cash') || lowerQuery.includes('support') || lowerQuery.includes('madad')) {
-    responseText = "I can help you find financial support programs. Based on your query, here are some programs that may be relevant:";
-    suggestions = ['Tell me about BISP', 'What about Sehat Card?'];
-  } else if (lowerQuery.includes('health') || lowerQuery.includes('medical') || lowerQuery.includes('hospital') || lowerQuery.includes('sehat') || lowerQuery.includes('صحت')) {
-    responseText = "For health-related support, here are relevant programs:";
-    suggestions = ['How to get Sehat Card?', 'What does it cover?'];
-  } else if (lowerQuery.includes('business') || lowerQuery.includes('loan') || lowerQuery.includes('startup') || lowerQuery.includes('karobar')) {
-    responseText = "Here are business support programs that may interest you:";
-    suggestions = ['What is the loan amount?', 'Who can apply?'];
-  } else if (lowerQuery.includes('housing') || lowerQuery.includes('home') || lowerQuery.includes('house') || lowerQuery.includes('ghar')) {
-    responseText = "Here are housing-related programs:";
-    suggestions = ['Who is eligible?', 'What are the requirements?'];
-  } else if (lowerQuery.includes('farmer') || lowerQuery.includes('agriculture') || lowerQuery.includes('kisan') || lowerQuery.includes('زراعت')) {
-    responseText = "For farmers and agriculture workers, here are relevant programs:";
-    suggestions = ['What subsidies are available?', 'What documents do I need?'];
-  } else if (lowerQuery.includes('document') || lowerQuery.includes('cnic') || lowerQuery.includes('paper')) {
-    responseText = "Most government programs require these basic documents:\n\n• Valid CNIC (Computerized National Identity Card)\n• Proof of residence\n• Family registration information (B-Form for children)\n• Income proof (if applicable)\n\nSpecific programs may require additional documents. Check each program's details for the complete list.";
-    suggestions = ['What is BISP?', 'Show me programs'];
-  } else if (lowerQuery.includes('bisp') || lowerQuery.includes('benazir')) {
-    responseText = "BISP (Benazir Income Support Programme) is Pakistan's largest social safety net program. The main component is Benazir Kafaalat, which provides quarterly cash transfers to eligible low-income families.\n\nTo check if you qualify, you can send your CNIC number to 8500 or visit your nearest BISP tehsil office.";
-    suggestions = ['What documents do I need?', 'How to register?'];
-  } else {
-    responseText = "I can help you find information about Pakistan's government programs and services. To give you the best guidance, please tell me about your situation:\n\n• What is your monthly income?\n• How many family members do you have?\n• Are you a farmer, employed, or self-employed?\n• Do you have any specific needs (health, financial support, etc.)?\n\nThe more details you share, the better I can help you.";
-    suggestions = ['I have 3 kids and earn 25,000', "I'm a farmer", 'I need health support'];
-  }
-  
-  const programIds = matchedPrograms.slice(0, 3).map(p => p.id);
-  
-  return {
-    id: Date.now().toString(),
-    role: 'assistant',
-    content: responseText,
-    programs: programIds.length > 0 ? programIds : undefined,
-    suggestions: suggestions.length > 0 ? suggestions : undefined,
-  };
-}
 
 export default function AssistantPage() {
   const { language } = useApp();
@@ -89,45 +34,28 @@ export default function AssistantPage() {
     {
       id: '1',
       role: 'assistant',
-      content: "Assalam o Alaikum! Welcome to Sarkar Sathi.\n\nI'm here to help you find government programs you may be eligible for. To give you the best guidance, I need to understand your situation first.\n\nPlease tell me about yourself:\n• How many family members do you have?\n• What is your monthly income?\n• Are you a farmer, student, or employed?\n• Do you have any specific needs (health, financial support, etc.)?\n\nThe more details you share, the better I can help you find the right programs.",
-      suggestions: ['I have 3 kids and earn 25,000', "I'm a farmer with 5 acres", 'I need health support for my family', 'I want to start a small business'],
+      content: "Assalam o Alaikum! Welcome to Sarkar Sathi.\n\nI'm here to help you find government programs you may be eligible for. Let's start by understanding your situation.\n\nPlease tell me about yourself - for example:\n• How many family members do you have?\n• What is your monthly income?\n• What do you do for work?\n• What kind of support are you looking for?\n\nYou can share as much or as little as you like, and I'll help you from there.",
+      suggestions: ['I have 3 kids and earn 25,000', "I'm a farmer with 5 acres", 'I need health support', 'I want to start a business'],
     }
   ]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [loadingMessageIndex, setLoadingMessageIndex] = useState(0);
-  const [apiAvailable, setApiAvailable] = useState<boolean | null>(null);
+  const [userProfile, setUserProfile] = useState<UserProfile>({});
+  const [showProfile, setShowProfile] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  
-  // Check if API is available on mount
-  useEffect(() => {
-    fetch('/api/health')
-      .then(res => res.json())
-      .then(data => {
-        setApiAvailable(data.qwenConfigured === true);
-      })
-      .catch(() => {
-        setApiAvailable(false);
-      });
-  }, []);
-  
-  // Progressive loading messages
-  useEffect(() => {
-    if (!isLoading) return;
-    
-    const interval = setInterval(() => {
-      setLoadingMessageIndex(prev => {
-        if (prev < loadingMessages.length - 1) return prev + 1;
-        return prev;
-      });
-    }, 1500);
-    
-    return () => clearInterval(interval);
-  }, [isLoading]);
   
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, isLoading]);
+  
+  useEffect(() => {
+    if (!isLoading) return;
+    const interval = setInterval(() => {
+      setLoadingMessageIndex(prev => prev < loadingMessages.length - 1 ? prev + 1 : prev);
+    }, 1200);
+    return () => clearInterval(interval);
+  }, [isLoading]);
   
   const handleSend = async (text?: string) => {
     const messageText = text || input.trim();
@@ -139,63 +67,290 @@ export default function AssistantPage() {
       role: 'user',
       content: messageText,
     };
-    
     setMessages(prev => [...prev, userMsg]);
     setInput('');
     setIsLoading(true);
     setLoadingMessageIndex(0);
     
+    // Update profile from message
+    const updatedProfile = extractProfileFromMessage(messageText, userProfile);
+    setUserProfile(updatedProfile);
+    
     // Try API first
-    if (apiAvailable) {
-      try {
-        // Build conversation history for context
-        const conversationHistory = messages
-          .filter(m => m.role !== 'assistant' || m.id !== '1') // Skip initial greeting
-          .concat(userMsg)
-          .map(m => ({ role: m.role, content: m.content }));
+    try {
+      const response = await fetch('/api/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          messages: [...messages.filter(m => m.role !== 'assistant' || m.id !== '1'), userMsg].map(m => ({
+            role: m.role,
+            content: m.content
+          })),
+          profile: updatedProfile
+        }),
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
         
-        const response = await fetch('/api/chat', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ messages: conversationHistory }),
-        });
-        
-        if (!response.ok) {
-          throw new Error('API request failed');
+        // Update profile with any new information from API
+        if (data.profileUpdates) {
+          const newProfile = { ...updatedProfile, ...data.profileUpdates };
+          setUserProfile(newProfile);
         }
         
-        const data: ApiResponse = await response.json();
+        // Build response content
+        let responseContent = data.answer || '';
         
+        // Add follow-up question if present
+        if (data.followUpQuestion) {
+          responseContent += `\n\n---\n\n${data.followUpQuestion}`;
+        }
+        
+        // Create assistant message
         const assistantMsg: Message = {
           id: (Date.now() + 1).toString(),
           role: 'assistant',
-          content: data.answer,
-          programs: data.recommendedPrograms && data.recommendedPrograms.length > 0 
-            ? data.recommendedPrograms 
+          content: responseContent,
+          programs: data.recommendedPrograms && data.recommendedPrograms.length > 0 ? data.recommendedPrograms : undefined,
+          suggestions: data.recommendedPrograms && data.recommendedPrograms.length > 0 
+            ? data.recommendedPrograms.map((id: string) => {
+                const prog = verifiedPrograms.find(p => p.id === id);
+                return prog ? `Tell me about ${prog.name}` : '';
+              }).filter(Boolean)
             : undefined,
-          suggestions: data.followUpQuestion ? [data.followUpQuestion] : undefined,
-          nextSteps: data.nextSteps,
-          documents: data.documents,
         };
         
         setMessages(prev => [...prev, assistantMsg]);
-      } catch (error) {
-        console.error('[Sarkar Sathi] API error, using fallback:', error);
-        // Fall back to rule-based
-        const fallbackResponse = generateFallbackResponse(messageText);
-        fallbackResponse.id = (Date.now() + 1).toString();
-        setMessages(prev => [...prev, fallbackResponse]);
+        setIsLoading(false);
+        return;
       }
-    } else {
-      // Use rule-based fallback
-      // Small delay for UX consistency
-      await new Promise(resolve => setTimeout(resolve, 800 + Math.random() * 500));
-      const fallbackResponse = generateFallbackResponse(messageText);
-      fallbackResponse.id = (Date.now() + 1).toString();
-      setMessages(prev => [...prev, fallbackResponse]);
+    } catch (error) {
+      console.error('API error, using local logic:', error);
     }
     
+    // Fallback to local logic if API fails
+    // Classify intent
+    const intentResult = classifyIntent(messageText);
+    
+    // Get missing information
+    const missingInfo = getMissingInformation(updatedProfile);
+    
+    // Determine response
+    let responseContent = '';
+    let recommendedProgramIds: string[] = [];
+    let suggestions: string[] = [];
+    
+    // Handle specific intents
+    if (intentResult.intent === 'program_details' && intentResult.programId) {
+      const program = verifiedPrograms.find(p => p.id === intentResult.programId);
+      if (program) {
+        responseContent = generateProgramDetailResponse(program);
+        suggestions = ['What documents do I need?', 'How do I apply?', 'Check my eligibility'];
+      }
+    } else if (intentResult.intent === 'documents' || intentResult.intent === 'application_process') {
+      if (updatedProfile.currentProgram) {
+        const program = verifiedPrograms.find(p => p.id === updatedProfile.currentProgram);
+        if (program) {
+          if (intentResult.intent === 'documents') {
+            responseContent = `For **${program.name}**, you will need:\n\n${program.documents.map(d => `• ${d}`).join('\n')}\n\nPlease verify these requirements with the official source as they may change.`;
+          } else {
+            responseContent = `**How to apply for ${program.name}:**\n\n${program.applicationSteps.map((s, i) => `${i + 1}. ${s}`).join('\n')}\n\n**Where to apply:**\n${program.applicationChannels.map(c => `• ${c}`).join('\n')}`;
+          }
+        }
+      } else {
+        responseContent = "I'd be happy to help with documents and application process. Which specific program are you asking about?";
+      }
+    } else if (updatedProfile.needs && updatedProfile.needs.length > 0) {
+      const recommendations = getRecommendedPrograms(updatedProfile, verifiedPrograms);
+      const topRecommendations = recommendations.slice(0, 3);
+      
+      if (topRecommendations.length > 0) {
+        recommendedProgramIds = topRecommendations.map(r => r.programId);
+        responseContent = generateRecommendationResponse(updatedProfile, topRecommendations, missingInfo);
+        
+        if (missingInfo.length > 0) {
+          const nextQuestion = getNextQuestion(updatedProfile, missingInfo);
+          if (nextQuestion) {
+            responseContent += `\n\n---\n\n${nextQuestion}`;
+          }
+        }
+        
+        suggestions = topRecommendations.map(r => {
+          const prog = verifiedPrograms.find(p => p.id === r.programId);
+          return prog ? `Tell me about ${prog.name}` : '';
+        }).filter(Boolean);
+      } else {
+        responseContent = "Based on what you've shared, I couldn't find any matching programs. Could you tell me more about what kind of support you're looking for?";
+        if (missingInfo.length > 0) {
+          const nextQuestion = getNextQuestion(updatedProfile, missingInfo);
+          if (nextQuestion) {
+            responseContent += `\n\n${nextQuestion}`;
+          }
+        }
+      }
+    } else if (missingInfo.length > 0) {
+      const nextQuestion = getNextQuestion(updatedProfile, missingInfo);
+      responseContent = generateProfileUpdateResponse(updatedProfile, messageText);
+      if (nextQuestion) {
+        responseContent += `\n\n${nextQuestion}`;
+      }
+      suggestions = ['I need health support', 'I need financial help', 'I want to start a business'];
+    } else {
+      responseContent = "Thank you for sharing. To help you find the right programs, could you tell me what kind of support you're looking for? For example:\n\n• Health or medical support\n• Financial assistance\n• Education support\n• Business or agriculture loans\n• Skills training\n\nWhat would be most helpful for you?";
+      suggestions = ['Health support', 'Financial assistance', 'Business loan', 'Education support'];
+    }
+    
+    const assistantMsg: Message = {
+      id: (Date.now() + 1).toString(),
+      role: 'assistant',
+      content: responseContent,
+      programs: recommendedProgramIds.length > 0 ? recommendedProgramIds : undefined,
+      suggestions: suggestions.length > 0 ? suggestions : undefined,
+    };
+    
+    await new Promise(resolve => setTimeout(resolve, 500));
+    setMessages(prev => [...prev, assistantMsg]);
     setIsLoading(false);
+  };
+  
+  const generateProfileUpdateResponse = (profile: UserProfile, message: string): string => {
+    const parts: string[] = [];
+    
+    if (profile.monthlyIncome) {
+      parts.push(`monthly income of Rs. ${profile.monthlyIncome.toLocaleString()}`);
+    }
+    if (profile.children) {
+      parts.push(`${profile.children} child${profile.children > 1 ? 'ren' : ''}`);
+    }
+    if (profile.occupation) {
+      parts.push(`work as a ${profile.occupation.replace('_', ' ')}`);
+    }
+    if (profile.landAcres) {
+      parts.push(`${profile.landAcres} acres of land`);
+    }
+    if (profile.age) {
+      parts.push(`age ${profile.age}`);
+    }
+    if (profile.province) {
+      parts.push(`live in ${profile.province}`);
+    }
+    
+    if (parts.length > 0) {
+      return `Thanks for sharing. I've noted that you ${parts.join(', ')}.\n\nTo give you the best recommendations, I need to understand what kind of support you're looking for.`;
+    }
+    
+    return "Thanks for that information. Could you tell me more about what kind of support you need?";
+  };
+  
+  const generateRecommendationResponse = (
+    profile: UserProfile,
+    recommendations: ReturnType<typeof getRecommendedPrograms>,
+    missingInfo: string[]
+  ): string => {
+    const parts: string[] = [];
+    
+    // Summary of what we know
+    parts.push("**Based on what you've told me:**\n");
+    if (profile.monthlyIncome) parts.push(`• Monthly income: Rs. ${profile.monthlyIncome.toLocaleString()}`);
+    if (profile.children) parts.push(`• Children: ${profile.children}`);
+    if (profile.occupation) parts.push(`• Occupation: ${profile.occupation.replace('_', ' ')}`);
+    if (profile.landAcres) parts.push(`• Land: ${profile.landAcres} acres`);
+    if (profile.age) parts.push(`• Age: ${profile.age}`);
+    if (profile.province) parts.push(`• Province: ${profile.province}`);
+    if (profile.needs && profile.needs.length > 0) parts.push(`• Looking for: ${profile.needs.join(', ')}`);
+    
+    parts.push("\n\n**Programs that may be relevant:**\n");
+    
+    recommendations.forEach((rec, index) => {
+      const program = verifiedPrograms.find(p => p.id === rec.programId);
+      if (!program) return;
+      
+      const statusText = getEligibilityStatusText(rec.eligibilityStatus);
+      parts.push(`\n**${index + 1}. ${program.name}**`);
+      parts.push(`_Status: ${statusText}_`);
+      
+      if (rec.reasons.length > 0) {
+        parts.push(`\nWhy it may be relevant:`);
+        rec.reasons.slice(0, 2).forEach(reason => {
+          parts.push(`• ${reason}`);
+        });
+      }
+      
+      if (rec.missingInformation.length > 0) {
+        parts.push(`\n_Missing information: ${rec.missingInformation.join(', ')}_`);
+      }
+      
+      parts.push(`\n[View official source →](${program.source.url})`);
+    });
+    
+    return parts.join('\n');
+  };
+  
+  const generateProgramDetailResponse = (program: VerifiedProgram): string => {
+    const parts: string[] = [];
+    
+    parts.push(`**${program.name}**`);
+    if (program.nameUrdu) parts.push(`_${program.nameUrdu}_`);
+    parts.push(`\n_Organization: ${program.organization}_`);
+    parts.push(`\n\n**What it is:**\n${program.description}`);
+    
+    parts.push(`\n\n**Who it's for:**`);
+    program.targetGroups.forEach(group => {
+      parts.push(`• ${group}`);
+    });
+    
+    parts.push(`\n\n**Benefits:**`);
+    program.benefits.forEach(benefit => {
+      parts.push(`• ${benefit}`);
+    });
+    
+    parts.push(`\n\n**Key eligibility information:**`);
+    if (program.eligibility.age) {
+      if (program.eligibility.age.note) {
+        parts.push(`• Age: ${program.eligibility.age.note}`);
+      } else if (program.eligibility.age.min || program.eligibility.age.max) {
+        const ageRange = [];
+        if (program.eligibility.age.min) ageRange.push(`min ${program.eligibility.age.min}`);
+        if (program.eligibility.age.max) ageRange.push(`max ${program.eligibility.age.max}`);
+        parts.push(`• Age: ${ageRange.join(', ')} years`);
+      }
+    }
+    if (program.eligibility.familyStatus) {
+      program.eligibility.familyStatus.forEach(status => {
+        parts.push(`• ${status}`);
+      });
+    }
+    if (program.eligibility.location?.provinces) {
+      parts.push(`• Location: ${program.eligibility.location.provinces.join(', ')}`);
+    }
+    if (program.eligibility.other) {
+      program.eligibility.other.forEach(other => {
+        parts.push(`• ${other}`);
+      });
+    }
+    
+    parts.push(`\n\n**Required documents:**`);
+    program.documents.forEach(doc => {
+      parts.push(`• ${doc}`);
+    });
+    
+    parts.push(`\n\n**How to apply:**`);
+    program.applicationSteps.forEach((step, i) => {
+      parts.push(`${i + 1}. ${step}`);
+    });
+    
+    parts.push(`\n\n**Where to apply:**`);
+    program.applicationChannels.forEach(channel => {
+      parts.push(`• ${channel}`);
+    });
+    
+    parts.push(`\n\n---`);
+    parts.push(`\n**Official source:** [${program.source.name}](${program.source.url})`);
+    parts.push(`\n_Last verified: ${program.source.verifiedAt}_`);
+    parts.push(`\n\n⚠️ _Information may change. Please verify with the official authority._`);
+    
+    return parts.join('\n');
   };
   
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -205,164 +360,213 @@ export default function AssistantPage() {
     }
   };
   
+  const profileItems = formatProfileForDisplay(userProfile);
+  const missingInfo = getMissingInformation(userProfile);
+  
   return (
-    <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-      {/* Header */}
-      <div className="text-center mb-6">
-        <div className="w-14 h-14 mx-auto mb-3 bg-navy-800 rounded-2xl flex items-center justify-center">
-          <Sparkles className="w-7 h-7 text-white" />
-        </div>
-        <h1 className="text-2xl font-bold text-navy-900">{t('assistant.title', language)}</h1>
-        <p className="text-navy-500 text-sm mt-1">{t('assistant.subtitle', language)}</p>
-        {apiAvailable === false && (
-          <p className="text-xs text-amber-600 mt-2 flex items-center justify-center gap-1">
-            <AlertTriangle className="w-3 h-3" />
-            Using offline mode — AI assistant unavailable
-          </p>
-        )}
-      </div>
-      
-      {/* Chat Area */}
-      <div className="bg-white rounded-2xl border border-navy-100 shadow-sm overflow-hidden">
-        <div className="h-[400px] sm:h-[500px] overflow-y-auto p-4 sm:p-6 space-y-4">
-          {messages.map((msg) => (
-            <div key={msg.id} className={`flex gap-3 ${msg.role === 'user' ? 'flex-row-reverse' : ''}`}>
-              {/* Avatar */}
-              <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${
-                msg.role === 'assistant' ? 'bg-navy-100' : 'bg-navy-800'
-              }`}>
-                {msg.role === 'assistant' ? (
-                  <Bot className="w-4 h-4 text-navy-700" />
-                ) : (
-                  <User className="w-4 h-4 text-white" />
-                )}
+    <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+      <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">
+        {/* Main Chat Area */}
+        <div className="lg:col-span-3">
+          {/* Header */}
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-navy-800 rounded-xl flex items-center justify-center">
+                <Sparkles className="w-5 h-5 text-white" />
               </div>
+              <div>
+                <h1 className="text-xl font-bold text-navy-900">Sarkar Sathi Assistant</h1>
+                <p className="text-xs text-navy-500">Powered by Qwen3-Max • Verified government data</p>
+              </div>
+            </div>
+            <button
+              onClick={() => setShowProfile(!showProfile)}
+              className={`lg:hidden flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                showProfile ? 'bg-navy-100 text-navy-800' : 'bg-white border border-navy-200 text-navy-600'
+              }`}
+            >
+              <UserCircle className="w-4 h-4" />
+              Profile
+            </button>
+          </div>
+          
+          {/* Chat Container */}
+          <div className="bg-white rounded-2xl border border-navy-100 shadow-sm overflow-hidden">
+            <div className="h-[500px] sm:h-[600px] overflow-y-auto p-4 sm:p-6 space-y-4">
+              {messages.map((msg) => (
+                <div key={msg.id} className={`flex gap-3 ${msg.role === 'user' ? 'flex-row-reverse' : ''}`}>
+                  <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${
+                    msg.role === 'assistant' ? 'bg-navy-100' : 'bg-navy-800'
+                  }`}>
+                    {msg.role === 'assistant' ? (
+                      <Bot className="w-4 h-4 text-navy-700" />
+                    ) : (
+                      <User className="w-4 h-4 text-white" />
+                    )}
+                  </div>
+                  
+                  <div className={`max-w-[85%] ${msg.role === 'user' ? 'text-right' : ''}`}>
+                    <div className={`inline-block p-3 sm:p-4 rounded-2xl text-sm leading-relaxed ${
+                      msg.role === 'assistant' 
+                        ? 'bg-navy-50 text-navy-800 rounded-tl-sm' 
+                        : 'bg-navy-800 text-white rounded-tr-sm'
+                    }`}>
+                      {msg.content.split('\n').map((line, i) => {
+                        // Handle markdown-like formatting
+                        if (line.startsWith('**') && line.endsWith('**')) {
+                          return <p key={i} className="font-bold my-1">{line.slice(2, -2)}</p>;
+                        }
+                        if (line.startsWith('_') && line.endsWith('_')) {
+                          return <p key={i} className="italic text-navy-600 my-1">{line.slice(1, -1)}</p>;
+                        }
+                        if (line.startsWith('• ') || line.startsWith('- ')) {
+                          return <p key={i} className="ml-2 my-0.5">{line}</p>;
+                        }
+                        if (line.startsWith('---')) {
+                          return <hr key={i} className="my-3 border-navy-200" />;
+                        }
+                        if (line.startsWith('[View official source')) {
+                          const match = line.match(/\[([^\]]+)\]\(([^)]+)\)/);
+                          if (match) {
+                            return (
+                              <a key={i} href={match[2]} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-navy-700 hover:text-navy-900 font-medium my-1">
+                                {match[1]} <ExternalLink className="w-3 h-3" />
+                              </a>
+                            );
+                          }
+                        }
+                        if (line.trim() === '') return <br key={i} />;
+                        return <p key={i} className="my-0.5">{line}</p>;
+                      })}
+                    </div>
+                    
+                    {/* Program Cards */}
+                    {msg.programs && msg.programs.length > 0 && (
+                      <div className="mt-2 space-y-2">
+                        {msg.programs.map(pid => {
+                          const program = verifiedPrograms.find(p => p.id === pid);
+                          if (!program) return null;
+                          return (
+                            <Link
+                              key={pid}
+                              to={`/programs/${pid}`}
+                              className="block p-3 bg-white border border-navy-100 rounded-xl hover:border-navy-300 hover:shadow-sm transition-all text-left"
+                            >
+                              <p className="font-medium text-sm text-navy-900">{program.name}</p>
+                              <p className="text-xs text-navy-500">{program.organization}</p>
+                              <p className="text-xs text-navy-600 mt-1 line-clamp-1">{program.purpose}</p>
+                            </Link>
+                          );
+                        })}
+                      </div>
+                    )}
+                    
+                    {/* Suggestions */}
+                    {msg.suggestions && msg.suggestions.length > 0 && (
+                      <div className="mt-2 flex flex-wrap gap-1.5">
+                        {msg.suggestions.map((sug, i) => (
+                          <button
+                            key={i}
+                            onClick={() => handleSend(sug)}
+                            className="px-3 py-1.5 bg-white border border-navy-200 rounded-lg text-xs font-medium text-navy-600 hover:bg-navy-50 hover:border-navy-300 transition-colors"
+                          >
+                            {sug}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ))}
               
-              {/* Message */}
-              <div className={`max-w-[80%] ${msg.role === 'user' ? 'text-right' : ''}`}>
-                <div className={`inline-block p-3 sm:p-4 rounded-2xl text-sm leading-relaxed ${
-                  msg.role === 'assistant' 
-                    ? 'bg-navy-50 text-navy-800 rounded-tl-sm' 
-                    : 'bg-navy-800 text-white rounded-tr-sm'
-                }`}>
-                  {msg.content.split('\n').map((line, i) => (
-                    <React.Fragment key={i}>
-                      {line}
-                      {i < msg.content.split('\n').length - 1 && <br />}
-                    </React.Fragment>
-                  ))}
+              {isLoading && (
+                <div className="flex gap-3 animate-fade-in">
+                  <div className="w-8 h-8 rounded-full bg-navy-100 flex items-center justify-center shrink-0">
+                    <Bot className="w-4 h-4 text-navy-700" />
+                  </div>
+                  <div className="bg-navy-50 rounded-2xl rounded-tl-sm px-4 py-3">
+                    <div className="flex items-center gap-2">
+                      <Loader2 className="w-3.5 h-3.5 text-navy-500 animate-spin" />
+                      <span className="text-xs text-navy-500">{loadingMessages[loadingMessageIndex]}</span>
+                    </div>
+                  </div>
                 </div>
-                
-                {/* Program Cards */}
-                {msg.programs && msg.programs.length > 0 && (
-                  <div className="mt-2 space-y-2">
-                    {msg.programs.map(pid => {
-                      const program = programs.find(p => p.id === pid);
-                      if (!program) return null;
-                      return (
-                        <Link
-                          key={pid}
-                          to={`/programs/${pid}`}
-                          className="block p-3 bg-white border border-navy-100 rounded-xl hover:border-navy-300 hover:shadow-sm transition-all text-left"
-                        >
-                          <p className="font-medium text-sm text-navy-900">{program.name}</p>
-                          <p className="text-xs text-navy-500">{program.organization}</p>
-                          <p className="text-xs text-navy-600 mt-1 line-clamp-1">{program.purpose}</p>
-                        </Link>
-                      );
-                    })}
-                  </div>
-                )}
-                
-                {/* Next Steps */}
-                {msg.nextSteps && msg.nextSteps.length > 0 && (
-                  <div className="mt-2 p-3 bg-green-50 border border-green-200 rounded-xl">
-                    <p className="text-xs font-semibold text-green-700 mb-1">Next Steps:</p>
-                    <ul className="space-y-1">
-                      {msg.nextSteps.map((step, i) => (
-                        <li key={i} className="text-xs text-green-700 flex items-start gap-1.5">
-                          <span className="w-1 h-1 rounded-full bg-green-500 mt-1.5 shrink-0"></span>
-                          {step}
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
-                
-                {/* Documents */}
-                {msg.documents && msg.documents.length > 0 && (
-                  <div className="mt-2 p-3 bg-blue-50 border border-blue-200 rounded-xl">
-                    <p className="text-xs font-semibold text-blue-700 mb-1">Documents you may need:</p>
-                    <ul className="space-y-1">
-                      {msg.documents.map((doc, i) => (
-                        <li key={i} className="text-xs text-blue-700 flex items-start gap-1.5">
-                          <span className="w-1 h-1 rounded-full bg-blue-500 mt-1.5 shrink-0"></span>
-                          {doc}
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
-                
-                {/* Suggestions */}
-                {msg.suggestions && msg.suggestions.length > 0 && (
-                  <div className="mt-2 flex flex-wrap gap-1.5">
-                    {msg.suggestions.map((sug, i) => (
-                      <button
-                        key={i}
-                        onClick={() => handleSend(sug)}
-                        className="px-3 py-1.5 bg-white border border-navy-200 rounded-lg text-xs font-medium text-navy-600 hover:bg-navy-50 hover:border-navy-300 transition-colors"
-                      >
-                        {sug}
-                      </button>
-                    ))}
-                  </div>
-                )}
+              )}
+              
+              <div ref={messagesEndRef} />
+            </div>
+            
+            {/* Input */}
+            <div className="border-t border-navy-100 p-4">
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  value={input}
+                  onChange={(e) => setInput(e.target.value)}
+                  onKeyDown={handleKeyDown}
+                  placeholder="Tell me about your situation..."
+                  disabled={isLoading}
+                  className="flex-1 px-4 py-2.5 bg-navy-50 border border-navy-200 rounded-xl text-sm text-navy-900 placeholder-navy-400 focus:outline-none focus:ring-2 focus:ring-navy-500 focus:border-transparent disabled:opacity-50"
+                />
+                <button
+                  onClick={() => handleSend()}
+                  disabled={!input.trim() || isLoading}
+                  className="px-4 py-2.5 bg-navy-800 text-white rounded-xl hover:bg-navy-700 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                >
+                  {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+                </button>
               </div>
             </div>
-          ))}
-          
-          {/* Loading indicator */}
-          {isLoading && (
-            <div className="flex gap-3 animate-fade-in">
-              <div className="w-8 h-8 rounded-full bg-navy-100 flex items-center justify-center shrink-0">
-                <Bot className="w-4 h-4 text-navy-700" />
-              </div>
-              <div className="bg-navy-50 rounded-2xl rounded-tl-sm px-4 py-3">
-                <div className="flex items-center gap-2">
-                  <Loader2 className="w-3.5 h-3.5 text-navy-500 animate-spin" />
-                  <span className="text-xs text-navy-500">{loadingMessages[loadingMessageIndex]}</span>
-                </div>
-              </div>
-            </div>
-          )}
-          
-          <div ref={messagesEndRef} />
+          </div>
         </div>
         
-        {/* Input */}
-        <div className="border-t border-navy-100 p-4">
-          <div className="flex gap-2">
-            <input
-              type="text"
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              onKeyDown={handleKeyDown}
-              placeholder={t('assistant.placeholder', language)}
-              disabled={isLoading}
-              className="flex-1 px-4 py-2.5 bg-navy-50 border border-navy-200 rounded-xl text-sm text-navy-900 placeholder-navy-400 focus:outline-none focus:ring-2 focus:ring-navy-500 focus:border-transparent disabled:opacity-50"
-            />
-            <button
-              onClick={() => handleSend()}
-              disabled={!input.trim() || isLoading}
-              className="px-4 py-2.5 bg-navy-800 text-white rounded-xl hover:bg-navy-700 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-            >
-              {isLoading ? (
-                <Loader2 className="w-4 h-4 animate-spin" />
-              ) : (
-                <Send className="w-4 h-4" />
-              )}
-            </button>
+        {/* Profile Panel */}
+        <div className={`${showProfile ? 'block' : 'hidden'} lg:block`}>
+          <div className="bg-white rounded-2xl border border-navy-100 shadow-sm p-4 sticky top-4">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="font-semibold text-navy-900 flex items-center gap-2">
+                <UserCircle className="w-5 h-5 text-navy-600" />
+                Your Profile
+              </h2>
+              <button
+                onClick={() => setShowProfile(false)}
+                className="lg:hidden p-1 text-navy-400 hover:text-navy-600"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            
+            {profileItems.length > 0 ? (
+              <div className="space-y-2">
+                {profileItems.map((item, i) => (
+                  <div key={i} className="flex items-center gap-2 text-sm">
+                    <CheckCircle2 className="w-3.5 h-3.5 text-green-500 shrink-0" />
+                    <span className="text-navy-700">{item}</span>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-sm text-navy-500 italic">No information yet. Tell me about yourself to get started.</p>
+            )}
+            
+            {missingInfo.length > 0 && (
+              <div className="mt-4 pt-4 border-t border-navy-100">
+                <p className="text-xs font-medium text-navy-500 mb-2">Missing information:</p>
+                <div className="flex flex-wrap gap-1">
+                  {missingInfo.map((info, i) => (
+                    <span key={i} className="px-2 py-0.5 bg-yellow-50 text-yellow-700 text-xs rounded-full border border-yellow-200">
+                      {info.replace('_', ' ')}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+            
+            <div className="mt-4 pt-4 border-t border-navy-100">
+              <p className="text-xs text-navy-500">
+                💡 Your information is only used to find relevant programs and is not stored permanently.
+              </p>
+            </div>
           </div>
         </div>
       </div>
@@ -372,37 +576,9 @@ export default function AssistantPage() {
         <div className="flex items-start gap-2">
           <Info className="w-4 h-4 text-amber-600 mt-0.5 shrink-0" />
           <p className="text-xs text-amber-700">
-            {t('assistant.disclaimer', language)}
+            Sarkar Sathi provides guidance based on verified government data. Always confirm details with the official source before taking action. Information may change over time.
           </p>
         </div>
-      </div>
-      
-      {/* Quick Links */}
-      <div className="mt-6 grid grid-cols-1 sm:grid-cols-2 gap-3">
-        <Link
-          to="/eligibility"
-          className="flex items-center gap-3 p-4 bg-white rounded-xl border border-navy-100 hover:border-navy-300 hover:shadow-sm transition-all"
-        >
-          <div className="w-10 h-10 bg-navy-50 rounded-lg flex items-center justify-center">
-            <Search className="w-5 h-5 text-navy-600" />
-          </div>
-          <div>
-            <p className="font-medium text-sm text-navy-900">Check Eligibility</p>
-            <p className="text-xs text-navy-500">Find programs matched to you</p>
-          </div>
-        </Link>
-        <Link
-          to="/programs"
-          className="flex items-center gap-3 p-4 bg-white rounded-xl border border-navy-100 hover:border-navy-300 hover:shadow-sm transition-all"
-        >
-          <div className="w-10 h-10 bg-navy-50 rounded-lg flex items-center justify-center">
-            <MessageCircle className="w-5 h-5 text-navy-600" />
-          </div>
-          <div>
-            <p className="font-medium text-sm text-navy-900">Browse Programs</p>
-            <p className="text-xs text-navy-500">Explore all available services</p>
-          </div>
-        </Link>
       </div>
     </div>
   );

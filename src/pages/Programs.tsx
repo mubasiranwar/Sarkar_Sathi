@@ -2,11 +2,21 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { useApp } from '../context/AppContext';
 import { t } from '../data/translations';
-import { programs, Program } from '../data/programs';
-import { searchPrograms, filterPrograms } from '../lib/programs';
+import { verifiedPrograms, VerifiedProgram } from '../data/verifiedPrograms';
 import { Search, Filter, X, ArrowRight, Shield, MapPin } from 'lucide-react';
 
 const categoryColors: Record<string, string> = {
+  'social_protection': 'bg-blue-50 text-blue-700 border-blue-200',
+  'financial_assistance': 'bg-green-50 text-green-700 border-green-200',
+  'education': 'bg-purple-50 text-purple-700 border-purple-200',
+  'health': 'bg-red-50 text-red-700 border-red-200',
+  'nutrition': 'bg-pink-50 text-pink-700 border-pink-200',
+  'business': 'bg-amber-50 text-amber-700 border-amber-200',
+  'agriculture': 'bg-emerald-50 text-emerald-700 border-emerald-200',
+  'skills': 'bg-indigo-50 text-indigo-700 border-indigo-200',
+  'employment': 'bg-cyan-50 text-cyan-700 border-cyan-200',
+  'registration': 'bg-gray-50 text-gray-700 border-gray-200',
+  'public_health': 'bg-teal-50 text-teal-700 border-teal-200',
   'Social Protection': 'bg-blue-50 text-blue-700 border-blue-200',
   'Education': 'bg-purple-50 text-purple-700 border-purple-200',
   'Health': 'bg-red-50 text-red-700 border-red-200',
@@ -16,8 +26,29 @@ const categoryColors: Record<string, string> = {
   'Housing': 'bg-indigo-50 text-indigo-700 border-indigo-200',
 };
 
-const allCategories = [...new Set(programs.map(p => p.category))];
-const allLevels = [...new Set(programs.map(p => p.level))];
+// Get all unique categories from verified programs
+const allCategories = [...new Set(verifiedPrograms.flatMap(p => p.category))];
+const allLevels = [...new Set(verifiedPrograms.map(p => p.level))];
+
+// Search function for verified programs
+function searchVerifiedPrograms(query: string) {
+  if (!query.trim()) return verifiedPrograms;
+  const normalizedQuery = query.toLowerCase().trim();
+  const terms = normalizedQuery.split(/\s+/);
+  return verifiedPrograms.filter(program => {
+    const searchableText = [
+      program.name,
+      program.nameUrdu || '',
+      program.organization,
+      program.category.join(' '),
+      program.purpose,
+      program.description,
+      ...program.targetGroups,
+      ...program.keywords
+    ].join(' ').toLowerCase();
+    return terms.every(term => searchableText.includes(term));
+  });
+}
 
 export default function ProgramsPage() {
   const { language } = useApp();
@@ -29,14 +60,14 @@ export default function ProgramsPage() {
   const [showFilters, setShowFilters] = useState(false);
   
   const filteredPrograms = useMemo(() => {
-    let result = programs;
+    let result = verifiedPrograms;
     
     if (searchQuery.trim()) {
-      result = searchPrograms(searchQuery);
+      result = searchVerifiedPrograms(searchQuery);
     }
     
     if (categoryFilter !== 'all') {
-      result = result.filter(p => p.category === categoryFilter);
+      result = result.filter(p => p.category.includes(categoryFilter));
     }
     
     if (levelFilter !== 'all') {
@@ -186,15 +217,20 @@ export default function ProgramsPage() {
   );
 }
 
-function ProgramCard({ program, language }: { program: Program; language: 'en' | 'ur' }) {
+function ProgramCard({ program, language }: { program: VerifiedProgram; language: 'en' | 'ur' }) {
+  const primaryCategory = program.category[0] || 'general';
+  const eligibilityPreview = program.eligibility.familyStatus?.[0] || 
+                             program.eligibility.other?.[0] || 
+                             'See details for eligibility';
+  
   return (
     <Link
       to={`/programs/${program.id}`}
       className="group p-5 rounded-xl border border-navy-100 bg-white hover:border-navy-300 hover:shadow-lg transition-all"
     >
       <div className="flex items-start justify-between mb-3">
-        <span className={`px-2.5 py-1 rounded-md text-xs font-medium border ${categoryColors[program.category] || 'bg-gray-50 text-gray-700 border-gray-200'}`}>
-          {program.category}
+        <span className={`px-2.5 py-1 rounded-md text-xs font-medium border ${categoryColors[primaryCategory] || 'bg-gray-50 text-gray-700 border-gray-200'}`}>
+          {primaryCategory.replace('_', ' ')}
         </span>
         <span className="text-xs text-navy-400 font-medium flex items-center gap-1">
           <MapPin className="w-3 h-3" />
@@ -214,7 +250,7 @@ function ProgramCard({ program, language }: { program: Program; language: 'en' |
       <div className="mb-3">
         <p className="text-xs text-navy-400 font-medium mb-1">Eligibility:</p>
         <p className="text-xs text-navy-600 line-clamp-1">
-          {program.eligibility[0]}
+          {eligibilityPreview}
         </p>
       </div>
       

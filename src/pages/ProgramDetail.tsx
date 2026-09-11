@@ -2,7 +2,7 @@ import React from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { useApp } from '../context/AppContext';
 import { t } from '../data/translations';
-import { getProgramById } from '../lib/programs';
+import { verifiedPrograms } from '../data/verifiedPrograms';
 import { 
   ArrowLeft, Bookmark, BookmarkCheck, ExternalLink, 
   CheckCircle2, AlertTriangle, MapPin, Building, 
@@ -10,13 +10,17 @@ import {
 } from 'lucide-react';
 
 const categoryColors: Record<string, string> = {
-  'Social Protection': 'bg-blue-50 text-blue-700 border-blue-200',
-  'Education': 'bg-purple-50 text-purple-700 border-purple-200',
-  'Health': 'bg-red-50 text-red-700 border-red-200',
-  'Employment': 'bg-amber-50 text-amber-700 border-amber-200',
-  'Business': 'bg-green-50 text-green-700 border-green-200',
-  'Agriculture': 'bg-emerald-50 text-emerald-700 border-emerald-200',
-  'Housing': 'bg-indigo-50 text-indigo-700 border-indigo-200',
+  'social_protection': 'bg-blue-50 text-blue-700 border-blue-200',
+  'financial_assistance': 'bg-green-50 text-green-700 border-green-200',
+  'education': 'bg-purple-50 text-purple-700 border-purple-200',
+  'health': 'bg-red-50 text-red-700 border-red-200',
+  'nutrition': 'bg-pink-50 text-pink-700 border-pink-200',
+  'business': 'bg-amber-50 text-amber-700 border-amber-200',
+  'agriculture': 'bg-emerald-50 text-emerald-700 border-emerald-200',
+  'skills': 'bg-indigo-50 text-indigo-700 border-indigo-200',
+  'employment': 'bg-cyan-50 text-cyan-700 border-cyan-200',
+  'registration': 'bg-gray-50 text-gray-700 border-gray-200',
+  'public_health': 'bg-teal-50 text-teal-700 border-teal-200',
 };
 
 export default function ProgramDetailPage() {
@@ -24,7 +28,7 @@ export default function ProgramDetailPage() {
   const { language, savedPrograms, toggleSaveProgram, setDocumentStatus, documentChecklist } = useApp();
   const navigate = useNavigate();
   
-  const program = id ? getProgramById(id) : undefined;
+  const program = id ? verifiedPrograms.find(p => p.id === id) : undefined;
   
   if (!program) {
     return (
@@ -57,16 +61,18 @@ export default function ProgramDetailPage() {
         <div className="flex flex-wrap items-start justify-between gap-4 mb-4">
           <div className="flex-1">
             <div className="flex flex-wrap items-center gap-2 mb-2">
-              <span className={`px-2.5 py-1 rounded-md text-xs font-medium border ${categoryColors[program.category] || 'bg-gray-50 text-gray-700 border-gray-200'}`}>
-                {program.category}
-              </span>
+              {program.category.map((cat, i) => (
+                <span key={i} className={`px-2.5 py-1 rounded-md text-xs font-medium border ${categoryColors[cat] || 'bg-gray-50 text-gray-700 border-gray-200'}`}>
+                  {cat.replace('_', ' ')}
+                </span>
+              ))}
               <span className="px-2.5 py-1 rounded-md text-xs font-medium bg-navy-50 text-navy-700 border border-navy-200 flex items-center gap-1">
                 <MapPin className="w-3 h-3" />
                 {program.level}
               </span>
-              {program.province && (
+              {program.province && program.province.length > 0 && (
                 <span className="px-2.5 py-1 rounded-md text-xs font-medium bg-navy-50 text-navy-700 border border-navy-200">
-                  {program.province}
+                  {program.province.join(', ')}
                 </span>
               )}
             </div>
@@ -133,8 +139,45 @@ export default function ProgramDetailPage() {
             {t('detail.eligibility', language)}
           </h2>
           <ul className="space-y-2">
-            {program.eligibility.map((item, i) => (
-              <li key={i} className="flex items-start gap-2 text-navy-700">
+            {program.eligibility.age && (
+              <li className="flex items-start gap-2 text-navy-700">
+                <span className="w-1.5 h-1.5 rounded-full bg-navy-400 mt-2 shrink-0"></span>
+                <span>
+                  Age: {program.eligibility.age.note || 
+                    (program.eligibility.age.min && program.eligibility.age.max 
+                      ? `${program.eligibility.age.min}-${program.eligibility.age.max} years`
+                      : program.eligibility.age.min ? `Minimum ${program.eligibility.age.min} years` 
+                      : program.eligibility.age.max ? `Maximum ${program.eligibility.age.max} years` 
+                      : 'Varies')}
+                </span>
+              </li>
+            )}
+            {program.eligibility.familyStatus?.map((item, i) => (
+              <li key={`fs-${i}`} className="flex items-start gap-2 text-navy-700">
+                <span className="w-1.5 h-1.5 rounded-full bg-navy-400 mt-2 shrink-0"></span>
+                {item}
+              </li>
+            ))}
+            {program.eligibility.location?.provinces && (
+              <li className="flex items-start gap-2 text-navy-700">
+                <span className="w-1.5 h-1.5 rounded-full bg-navy-400 mt-2 shrink-0"></span>
+                <span>Location: {program.eligibility.location.provinces.join(', ')} {program.eligibility.location.note && `(${program.eligibility.location.note})`}</span>
+              </li>
+            )}
+            {program.eligibility.occupation?.map((item, i) => (
+              <li key={`occ-${i}`} className="flex items-start gap-2 text-navy-700">
+                <span className="w-1.5 h-1.5 rounded-full bg-navy-400 mt-2 shrink-0"></span>
+                {item}
+              </li>
+            ))}
+            {program.eligibility.education && (
+              <li className="flex items-start gap-2 text-navy-700">
+                <span className="w-1.5 h-1.5 rounded-full bg-navy-400 mt-2 shrink-0"></span>
+                Education: {program.eligibility.education}
+              </li>
+            )}
+            {program.eligibility.other?.map((item, i) => (
+              <li key={`other-${i}`} className="flex items-start gap-2 text-navy-700">
                 <span className="w-1.5 h-1.5 rounded-full bg-navy-400 mt-2 shrink-0"></span>
                 {item}
               </li>
@@ -232,14 +275,12 @@ export default function ProgramDetailPage() {
             <Info className="w-5 h-5 text-navy-500 shrink-0 mt-0.5" />
             <div>
               <h3 className="font-medium text-navy-800 mb-1">{t('detail.source', language)}</h3>
-              <p className="text-sm text-navy-600">{program.source}</p>
-              {program.sourceUrl && (
-                <a href={program.sourceUrl} target="_blank" rel="noopener noreferrer" className="text-sm text-navy-700 hover:text-navy-900 flex items-center gap-1 mt-1">
-                  Visit official source <ExternalLink className="w-3 h-3" />
-                </a>
-              )}
+              <p className="text-sm text-navy-600">{program.source.name}</p>
+              <a href={program.source.url} target="_blank" rel="noopener noreferrer" className="text-sm text-navy-700 hover:text-navy-900 flex items-center gap-1 mt-1">
+                Visit official source <ExternalLink className="w-3 h-3" />
+              </a>
               <p className="text-xs text-navy-400 mt-2">
-                {t('common.lastUpdated', language)}: {program.lastUpdated} | Status: {program.verificationStatus === 'verified' ? 'Verified' : 'Needs verification'}
+                {t('common.lastUpdated', language)}: {program.source.verifiedAt} | Status: {program.source.verificationStatus === 'official' ? 'Official' : 'Needs verification'}
               </p>
             </div>
           </div>
@@ -250,17 +291,17 @@ export default function ProgramDetailPage() {
       <div className="mt-10 pt-8 border-t border-navy-100">
         <div className="flex flex-wrap gap-3">
           <Link
-            to="/eligibility"
+            to="/assistant"
             className="inline-flex items-center gap-2 px-6 py-3 bg-navy-800 text-white font-semibold rounded-xl hover:bg-navy-700 transition-all shadow-sm"
           >
             <Shield className="w-4 h-4" />
-            {t('detail.checkEligibility', language)}
+            Ask Sarkar Sathi
           </Link>
           <Link
             to="/assistant"
             className="inline-flex items-center gap-2 px-6 py-3 bg-white text-navy-700 font-semibold rounded-xl hover:bg-navy-50 transition-all border border-navy-200"
           >
-            Ask about this program
+            Check my eligibility
           </Link>
         </div>
       </div>

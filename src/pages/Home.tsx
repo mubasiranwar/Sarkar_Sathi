@@ -2,31 +2,31 @@ import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useApp } from '../context/AppContext';
 import { t } from '../data/translations';
-import { programs } from '../data/programs';
+import { verifiedPrograms } from '../data/verifiedPrograms';
 import { 
   Search, ArrowRight, Shield, GraduationCap, Heart, 
-  Briefcase, Store, Sprout, Home as HomeIcon,
+  Briefcase, Store, Sprout, Home as HomeIcon, Users,
   CheckCircle2, FileText, ChevronRight, Info, Sparkles
 } from 'lucide-react';
 
 const categoryIcons: Record<string, React.ReactNode> = {
-  'Social Protection': <Shield className="w-5 h-5" />,
-  'Education': <GraduationCap className="w-5 h-5" />,
-  'Health': <Heart className="w-5 h-5" />,
-  'Employment': <Briefcase className="w-5 h-5" />,
-  'Business': <Store className="w-5 h-5" />,
-  'Agriculture': <Sprout className="w-5 h-5" />,
-  'Housing': <HomeIcon className="w-5 h-5" />,
+  'social_protection': <Shield className="w-5 h-5" />,
+  'education': <GraduationCap className="w-5 h-5" />,
+  'health': <Heart className="w-5 h-5" />,
+  'employment': <Briefcase className="w-5 h-5" />,
+  'business': <Store className="w-5 h-5" />,
+  'agriculture': <Sprout className="w-5 h-5" />,
+  'skills': <Users className="w-5 h-5" />,
 };
 
 const categoryColors: Record<string, string> = {
-  'Social Protection': 'bg-blue-50 text-blue-700 border-blue-200',
-  'Education': 'bg-purple-50 text-purple-700 border-purple-200',
-  'Health': 'bg-red-50 text-red-700 border-red-200',
-  'Employment': 'bg-amber-50 text-amber-700 border-amber-200',
-  'Business': 'bg-green-50 text-green-700 border-green-200',
-  'Agriculture': 'bg-emerald-50 text-emerald-700 border-emerald-200',
-  'Housing': 'bg-indigo-50 text-indigo-700 border-indigo-200',
+  'social_protection': 'bg-blue-50 text-blue-700 border-blue-200',
+  'education': 'bg-purple-50 text-purple-700 border-purple-200',
+  'health': 'bg-red-50 text-red-700 border-red-200',
+  'employment': 'bg-amber-50 text-amber-700 border-amber-200',
+  'business': 'bg-green-50 text-green-700 border-green-200',
+  'agriculture': 'bg-emerald-50 text-emerald-700 border-emerald-200',
+  'skills': 'bg-indigo-50 text-indigo-700 border-indigo-200',
 };
 
 export default function HomePage() {
@@ -45,7 +45,7 @@ export default function HomePage() {
     navigate(`/assistant?query=${encodeURIComponent(suggestion)}`);
   };
   
-  const featuredPrograms = programs.slice(0, 3);
+  const featuredPrograms = verifiedPrograms.slice(0, 3);
   const categories = Object.keys(categoryIcons);
   
   return (
@@ -152,7 +152,7 @@ export default function HomePage() {
               <div className="transition-transform group-hover:scale-110">
                 {categoryIcons[cat]}
               </div>
-              <span className="font-medium text-sm">{cat}</span>
+              <span className="font-medium text-sm">{cat.replace('_', ' ')}</span>
             </Link>
           ))}
         </div>
@@ -178,8 +178,8 @@ export default function HomePage() {
                 className="group p-5 rounded-xl border border-navy-100 hover:border-navy-300 hover:shadow-lg transition-all bg-white"
               >
                 <div className="flex items-start justify-between mb-3">
-                  <span className={`px-2.5 py-1 rounded-md text-xs font-medium border ${categoryColors[program.category] || 'bg-gray-50 text-gray-700 border-gray-200'}`}>
-                    {program.category}
+                  <span className={`px-2.5 py-1 rounded-md text-xs font-medium border ${categoryColors[program.category[0]] || 'bg-gray-50 text-gray-700 border-gray-200'}`}>
+                    {program.category[0].replace('_', ' ')}
                   </span>
                   <span className="text-xs text-navy-400 font-medium">{program.level}</span>
                 </div>
