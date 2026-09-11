@@ -59,6 +59,56 @@ body {
   50% { opacity: 0.7; }
 }
 
+@keyframes voice-orb-breathe {
+  0%, 100% { transform: scale(0.96); box-shadow: 0 0 32px rgba(103, 232, 249, 0.25); }
+  50% { transform: scale(1.04); box-shadow: 0 0 64px rgba(103, 232, 249, 0.55); }
+}
+
+@keyframes voice-orb-process {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+@keyframes voice-orb-speak {
+  0%, 100% { transform: scale(0.98); box-shadow: 0 0 42px rgba(45, 212, 191, 0.35); }
+  50% { transform: scale(1.1); box-shadow: 0 0 90px rgba(45, 212, 191, 0.7); }
+}
+
+@keyframes voice-ring-expand {
+  0% { opacity: 0.65; transform: scale(0.85); }
+  100% { opacity: 0; transform: scale(1.5); }
+}
+
+.voice-orb {
+  position: relative;
+  display: flex;
+  width: 11rem;
+  height: 11rem;
+  align-items: center;
+  justify-content: center;
+  border-radius: 9999px;
+}
+
+.voice-orb-core {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  width: 7rem;
+  height: 7rem;
+  align-items: center;
+  justify-content: center;
+  border-radius: 9999px;
+  background: radial-gradient(circle at 35% 30%, #d9faff, #67e8f9 34%, #0e7490 100%);
+  color: #082f49;
+}
+
+.voice-orb-listening { animation: voice-orb-breathe 2.8s ease-in-out infinite; }
+.voice-orb-processing { animation: voice-orb-process 3s linear infinite; }
+.voice-orb-speaking { animation: voice-orb-speak 0.85s ease-in-out infinite; }
+.voice-orb-ring { position: absolute; inset: 0; border: 1px solid rgba(165, 243, 252, 0.45); border-radius: 9999px; }
+.voice-orb-ring-one { animation: voice-ring-expand 2.4s ease-out infinite; }
+.voice-orb-ring-two { animation: voice-ring-expand 2.4s 1.2s ease-out infinite; }
+
 .animate-fade-in {
   animation: fadeIn 0.4s ease-out forwards;
 }
@@ -123,6 +173,11 @@ body {
 @media (prefers-reduced-motion: reduce) {
   .animate-fade-in,
   .animate-slide-up {
+    animation: none;
+  }
+
+  .voice-orb,
+  .voice-orb-ring {
     animation: none;
   }
   

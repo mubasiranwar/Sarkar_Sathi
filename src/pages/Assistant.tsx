@@ -5,10 +5,12 @@ import { verifiedPrograms, VerifiedProgram } from '../data/verifiedPrograms';
 import { UserProfile, extractProfileFromMessage, getMissingInformation, getNextQuestion, formatProfileForDisplay, detectLanguage } from '../lib/profile';
 import { classifyIntent, getProgramsForIntent } from '../lib/intents';
 import { getRecommendedPrograms, getEligibilityStatusText, getEligibilityStatusColor } from '../lib/recommendations';
+import VoiceModal from '../components/VoiceModal';
+import { useSpeechSynthesis } from '../hooks/useSpeechSynthesis';
 import { 
   Send, Bot, User, Sparkles, AlertTriangle, 
   ArrowRight, Search, Info, MessageCircle,
-  Loader2, UserCircle, X, ExternalLink, CheckCircle2, Mic, MicOff
+  Loader2, UserCircle, X, ExternalLink, CheckCircle2, Mic, MicOff, Headphones
 } from 'lucide-react';
 
 interface SpeechRecognitionAlternativeResult {
@@ -78,7 +80,7 @@ const loadingMessages = [
 ];
 
 export default function AssistantPage() {
-  const { language } = useApp();
+  const { language, setLanguage } = useApp();
   const [messages, setMessages] = useState<Message[]>([
     {
       id: '1',
@@ -95,10 +97,17 @@ export default function AssistantPage() {
   const [detectedLanguage, setDetectedLanguage] = useState<'urdu' | 'roman_urdu' | 'english'>('english');
   const [isListening, setIsListening] = useState(false);
   const [voiceError, setVoiceError] = useState('');
+  const [isVoiceModeOpen, setIsVoiceModeOpen] = useState(false);
+  const [isVoiceMuted, setIsVoiceMuted] = useState(false);
+  const [voiceUserCaption, setVoiceUserCaption] = useState('');
+  const [voiceAssistantCaption, setVoiceAssistantCaption] = useState('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const recognitionRef = useRef<SpeechRecognitionInstance | null>(null);
   const voiceTranscriptRef = useRef('');
   const voiceInputPrefixRef = useRef('');
+  const isListeningRef = useRef(false);
+  const manualStopRef = useRef(false);
+  const { isSpeaking, isPaused, speak, pause, resume, stop } = useSpeechSynthesis();
   
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -182,6 +191,8 @@ export default function AssistantPage() {
         };
         
         setMessages(prev => [...prev, assistantMsg]);
+        setVoiceAssistantCaption(responseContent);
+        if (isVoiceModeOpen && !isVoiceMuted) speak(responseContent, userLanguage);
         setIsLoading(false);
         return;
       }
@@ -287,15 +298,12 @@ export default function AssistantPage() {
     
     await new Promise(resolve => setTimeout(resolve, 500));
     setMessages(prev => [...prev, assistantMsg]);
+    setVoiceAssistantCaption(responseContent);
+    if (isVoiceModeOpen && !isVoiceMuted) speak(responseContent, detectedLanguage);
     setIsLoading(false);
   };
 
-  const toggleVoiceInput = () => {
-    if (isListening) {
-      recognitionRef.current?.stop();
-      return;
-    }
-
+  const startRecognition = () => {
     const SpeechRecognitionAPI = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (!SpeechRecognitionAPI) {
       setVoiceError('Voice input is not supported in this browser. Please type your message.');
@@ -304,15 +312,21 @@ export default function AssistantPage() {
 
     setVoiceError('');
     voiceTranscriptRef.current = '';
+    setVoiceUserCaption('');
     voiceInputPrefixRef.current = input.trim();
+    manualStopRef.current = false;
+    isListeningRef.current = true;
 
     const recognition = new SpeechRecognitionAPI();
     recognition.lang = language === 'ur' ? 'ur-PK' : 'en-US';
     recognition.interimResults = true;
-    recognition.continuous = false;
+    recognition.continuous = true;
     recognitionRef.current = recognition;
 
-    recognition.onstart = () => setIsListening(true);
+    recognition.onstart = () => {
+      isListeningRef.current = true;
+      setIsListening(true);
+    };
     recognition.onresult = (event) => {
       let finalTranscript = '';
       let interimTranscript = '';
@@ -328,39 +342,86 @@ export default function AssistantPage() {
       voiceTranscriptRef.current = `${voiceTranscriptRef.current} ${finalTranscript}`.trim();
       const liveTranscript = `${voiceTranscriptRef.current} ${interimTranscript}`.trim();
       setInput([voiceInputPrefixRef.current, liveTranscript].filter(Boolean).join(' '));
+      setVoiceUserCaption(liveTranscript);
     };
     recognition.onerror = (event) => {
-      setIsListening(false);
-      if (event.error !== 'aborted') {
+      if (event.error === 'not-allowed' || event.error === 'service-not-allowed' || event.error === 'audio-capture') {
+        manualStopRef.current = true;
+        isListeningRef.current = false;
+        setIsListening(false);
         setVoiceError('Voice input is not supported in this browser. Please type your message.');
       }
     };
     recognition.onend = () => {
+      if (!manualStopRef.current && isListeningRef.current) {
+        try {
+          recognition.start();
+        } catch (error) {
+          // The browser may still be closing the previous session; onend will retry if needed.
+        }
+        return;
+      }
+      isListeningRef.current = false;
       setIsListening(false);
       recognitionRef.current = null;
-      const transcript = voiceTranscriptRef.current.trim();
-      if (transcript) {
-        handleSend([voiceInputPrefixRef.current, transcript].filter(Boolean).join(' '));
-      }
     };
 
     try {
       recognition.start();
     } catch (error) {
       recognitionRef.current = null;
+      isListeningRef.current = false;
       setIsListening(false);
       setVoiceError('Voice input is not supported in this browser. Please type your message.');
     }
   };
 
+  const toggleVoiceInput = () => {
+    if (isListening) {
+      manualStopRef.current = true;
+      isListeningRef.current = false;
+      recognitionRef.current?.stop();
+      setIsListening(false);
+      return;
+    }
+    startRecognition();
+  };
+
+  const toggleVoiceMode = () => {
+    if (isVoiceModeOpen) {
+      manualStopRef.current = true;
+      isListeningRef.current = false;
+      recognitionRef.current?.stop();
+      stop();
+      setIsListening(false);
+      setIsVoiceModeOpen(false);
+      return;
+    }
+    setVoiceAssistantCaption('');
+    setIsVoiceModeOpen(true);
+  };
+
+  const switchVoiceLanguage = () => {
+    setLanguage(language === 'ur' ? 'en' : 'ur');
+    if (isListening) {
+      manualStopRef.current = true;
+      isListeningRef.current = false;
+      recognitionRef.current?.stop();
+      setIsListening(false);
+    }
+  };
+
   useEffect(() => {
     return () => {
+      manualStopRef.current = true;
+      isListeningRef.current = false;
       if (recognitionRef.current) {
         recognitionRef.current.onend = null;
         recognitionRef.current.abort();
       }
+      stop();
     };
-  }, []);
+  }, [stop]);
   
   const generateProfileUpdateResponse = (profile: UserProfile, message: string): string => {
     const lang = detectedLanguage;
@@ -549,15 +610,27 @@ export default function AssistantPage() {
                 <p className="text-xs text-navy-500">Powered by Qwen3-Max • Verified government data</p>
               </div>
             </div>
-            <button
-              onClick={() => setShowProfile(!showProfile)}
-              className={`lg:hidden flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
-                showProfile ? 'bg-navy-100 text-navy-800' : 'bg-white border border-navy-200 text-navy-600'
-              }`}
-            >
-              <UserCircle className="w-4 h-4" />
-              Profile
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={toggleVoiceMode}
+                className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                  isVoiceModeOpen ? 'bg-cyan-100 text-cyan-800' : 'bg-white border border-navy-200 text-navy-600 hover:bg-navy-50'
+                }`}
+                aria-label={isVoiceModeOpen ? 'Exit Voice Mode' : 'Open Voice Mode'}
+              >
+                <Headphones className="w-4 h-4" />
+                <span className="hidden sm:inline">Voice Mode</span>
+              </button>
+              <button
+                onClick={() => setShowProfile(!showProfile)}
+                className={`lg:hidden flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                  showProfile ? 'bg-navy-100 text-navy-800' : 'bg-white border border-navy-200 text-navy-600'
+                }`}
+              >
+                <UserCircle className="w-4 h-4" />
+                <span className="hidden sm:inline">Profile</span>
+              </button>
+            </div>
           </div>
           
           {/* Chat Container */}
@@ -792,6 +865,31 @@ export default function AssistantPage() {
           </p>
         </div>
       </div>
+
+      <VoiceModal
+        isOpen={isVoiceModeOpen}
+        isListening={isListening}
+        isProcessing={isLoading}
+        isSpeaking={isSpeaking}
+        isPaused={isPaused}
+        isMuted={isVoiceMuted}
+        userTranscript={voiceUserCaption || input}
+        assistantTranscript={voiceAssistantCaption}
+        language={language}
+        onMuteToggle={() => {
+          setIsVoiceMuted(prev => {
+            const nextMuted = !prev;
+            if (nextMuted) stop();
+            return nextMuted;
+          });
+        }}
+        onPauseToggle={isPaused ? resume : pause}
+        onStopSpeaking={stop}
+        onExit={toggleVoiceMode}
+        onSwitchLanguage={switchVoiceLanguage}
+        onToggleListening={toggleVoiceInput}
+        onSend={() => handleSend()}
+      />
     </div>
   );
 }
