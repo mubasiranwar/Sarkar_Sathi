@@ -20,7 +20,7 @@ export function sarkarSathiApiPlugin(): Plugin {
         req.on('data', chunk => { body += chunk; });
         req.on('end', async () => {
           try {
-            const { messages, profile } = JSON.parse(body);
+            const { messages, profile, language } = JSON.parse(body);
             
             if (!messages || !Array.isArray(messages)) {
               res.statusCode = 400;
@@ -29,8 +29,8 @@ export function sarkarSathiApiPlugin(): Plugin {
               return;
             }
             
-            console.log('[Sarkar Sathi API] Processing chat request...');
-            const response = await handleChat(messages, profile || {});
+            console.log(`[Sarkar Sathi API] Processing chat request, language: ${language || 'english'}`);
+            const response = await handleChat(messages, profile || {}, language || 'english');
             
             res.statusCode = 200;
             res.setHeader('Content-Type', 'application/json');

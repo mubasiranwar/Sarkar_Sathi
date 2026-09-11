@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useApp } from '../context/AppContext';
 import { verifiedPrograms, VerifiedProgram } from '../data/verifiedPrograms';
-import { UserProfile, extractProfileFromMessage, getMissingInformation, getNextQuestion, formatProfileForDisplay } from '../lib/profile';
+import { UserProfile, extractProfileFromMessage, getMissingInformation, getNextQuestion, formatProfileForDisplay, detectLanguage } from '../lib/profile';
 import { classifyIntent, getProgramsForIntent } from '../lib/intents';
 import { getRecommendedPrograms, getEligibilityStatusText, getEligibilityStatusColor } from '../lib/recommendations';
 import { 
@@ -34,8 +34,8 @@ export default function AssistantPage() {
     {
       id: '1',
       role: 'assistant',
-      content: "Assalam o Alaikum! Welcome to Sarkar Sathi.\n\nI'm here to help you find government programs you may be eligible for. Let's start by understanding your situation.\n\nPlease tell me about yourself - for example:\n• How many family members do you have?\n• What is your monthly income?\n• What do you do for work?\n• What kind of support are you looking for?\n\nYou can share as much or as little as you like, and I'll help you from there.",
-      suggestions: ['I have 3 kids and earn 25,000', "I'm a farmer with 5 acres", 'I need health support', 'I want to start a business'],
+      content: "Assalam o Alaikum! Welcome to Sarkar Sathi.\n\nI'm here to help you find government programs you may be eligible for.\n\n💬 **You can chat with me in:**\n• English\n• Urdu (اردو)\n• Roman Urdu (e.g., \"mujhe madad chahiye\")\n\nI'll respond in the same language you use!\n\nLet's start - tell me about yourself:\n• How many family members do you have?\n• What is your monthly income?\n• What do you do for work?\n• What kind of support are you looking for?",
+      suggestions: ['I have 3 kids and earn 25,000', "I'm a farmer with 5 acres", 'mujhe sehat ki madad chahiye', 'میرے 3 بچے ہیں اور آمدن 25,000 ہے'],
     }
   ]);
   const [input, setInput] = useState('');
@@ -43,6 +43,7 @@ export default function AssistantPage() {
   const [loadingMessageIndex, setLoadingMessageIndex] = useState(0);
   const [userProfile, setUserProfile] = useState<UserProfile>({});
   const [showProfile, setShowProfile] = useState(false);
+  const [detectedLanguage, setDetectedLanguage] = useState<'urdu' | 'roman_urdu' | 'english'>('english');
   const messagesEndRef = useRef<HTMLDivElement>(null);
   
   useEffect(() => {
@@ -60,6 +61,10 @@ export default function AssistantPage() {
   const handleSend = async (text?: string) => {
     const messageText = text || input.trim();
     if (!messageText || isLoading) return;
+    
+    // Detect language of user message
+    const userLanguage = detectLanguage(messageText);
+    setDetectedLanguage(userLanguage);
     
     // Add user message
     const userMsg: Message = {
@@ -86,7 +91,8 @@ export default function AssistantPage() {
             role: m.role,
             content: m.content
           })),
-          profile: updatedProfile
+          profile: updatedProfile,
+          language: userLanguage
         }),
       });
       
@@ -170,7 +176,7 @@ export default function AssistantPage() {
         responseContent = generateRecommendationResponse(updatedProfile, topRecommendations, missingInfo);
         
         if (missingInfo.length > 0) {
-          const nextQuestion = getNextQuestion(updatedProfile, missingInfo);
+          const nextQuestion = getNextQuestion(updatedProfile, missingInfo, detectedLanguage);
           if (nextQuestion) {
             responseContent += `\n\n---\n\n${nextQuestion}`;
           }
@@ -181,24 +187,40 @@ export default function AssistantPage() {
           return prog ? `Tell me about ${prog.name}` : '';
         }).filter(Boolean);
       } else {
-        responseContent = "Based on what you've shared, I couldn't find any matching programs. Could you tell me more about what kind of support you're looking for?";
+        responseContent = detectedLanguage === 'urdu' 
+          ? "آپ کی معلومات کی بنیاد پر، ہمارے ڈیٹا میں کوئی مماثل پروگرام نہیں ملا۔ کیا آپ بتا سکتے ہیں کہ آپ کو کس قسم کی مدد چاہیے؟"
+          : detectedLanguage === 'roman_urdu'
+          ? "Aap ki maloomat ki bina par, hamare data mein koi mumasil program nahi mila. Kya aap bata sakte hain ke aap ko kis qisam ki madad chahiye?"
+          : "Based on what you've shared, I couldn't find any matching programs. Could you tell me more about what kind of support you're looking for?";
         if (missingInfo.length > 0) {
-          const nextQuestion = getNextQuestion(updatedProfile, missingInfo);
+          const nextQuestion = getNextQuestion(updatedProfile, missingInfo, detectedLanguage);
           if (nextQuestion) {
             responseContent += `\n\n${nextQuestion}`;
           }
         }
       }
     } else if (missingInfo.length > 0) {
-      const nextQuestion = getNextQuestion(updatedProfile, missingInfo);
+      const nextQuestion = getNextQuestion(updatedProfile, missingInfo, detectedLanguage);
       responseContent = generateProfileUpdateResponse(updatedProfile, messageText);
       if (nextQuestion) {
         responseContent += `\n\n${nextQuestion}`;
       }
-      suggestions = ['I need health support', 'I need financial help', 'I want to start a business'];
+      suggestions = detectedLanguage === 'urdu'
+        ? ['صحت کی مدد', 'مالی مدد', 'کاروبار شروع کرنا']
+        : detectedLanguage === 'roman_urdu'
+        ? ['sehat ki madad', 'maali madad', 'karobar shuru karna']
+        : ['I need health support', 'I need financial help', 'I want to start a business'];
     } else {
-      responseContent = "Thank you for sharing. To help you find the right programs, could you tell me what kind of support you're looking for? For example:\n\n• Health or medical support\n• Financial assistance\n• Education support\n• Business or agriculture loans\n• Skills training\n\nWhat would be most helpful for you?";
-      suggestions = ['Health support', 'Financial assistance', 'Business loan', 'Education support'];
+      if (detectedLanguage === 'urdu') {
+        responseContent = "شکریہ! بہتر پروگرام تلاش کرنے کے لیے، بتائیں آپ کو کس قسم کی مدد چاہیے؟\n\n• صحت یا طبی مدد\n• مالی امداد\n• تعلیمی مدد\n• کاروبار یا زراعت کے قرضے\n• مہارت کی تربیت\n\nآپ کے لیے کیا سب سے مفید ہوگا؟";
+        suggestions = ['صحت کی مدد', 'مالی امداد', 'کاروباری قرض', 'تعلیمی مدد'];
+      } else if (detectedLanguage === 'roman_urdu') {
+        responseContent = "Shukriya! Behtar program talash karne ke liye, batayein aap ko kis qisam ki madad chahiye?\n\n• Sehat ya tibbi madad\n• Maali imdaad\n• Taleemi madad\n• Karobar ya zirat ke qarzay\n• Maharat ki tarbeet\n\nAap ke liye kya sab se mufeed hoga?";
+        suggestions = ['sehat ki madad', 'maali imdaad', 'karobar qarz', 'taleemi madad'];
+      } else {
+        responseContent = "Thank you for sharing. To help you find the right programs, could you tell me what kind of support you're looking for? For example:\n\n• Health or medical support\n• Financial assistance\n• Education support\n• Business or agriculture loans\n• Skills training\n\nWhat would be most helpful for you?";
+        suggestions = ['Health support', 'Financial assistance', 'Business loan', 'Education support'];
+      }
     }
     
     const assistantMsg: Message = {
@@ -215,26 +237,48 @@ export default function AssistantPage() {
   };
   
   const generateProfileUpdateResponse = (profile: UserProfile, message: string): string => {
-    const parts: string[] = [];
+    const lang = detectedLanguage;
     
-    if (profile.monthlyIncome) {
-      parts.push(`monthly income of Rs. ${profile.monthlyIncome.toLocaleString()}`);
+    // Urdu responses
+    if (lang === 'urdu') {
+      const parts: string[] = [];
+      if (profile.monthlyIncome) parts.push(`ماہانہ آمدن Rs. ${profile.monthlyIncome.toLocaleString()}`);
+      if (profile.children) parts.push(`${profile.children} بچے`);
+      if (profile.occupation) parts.push(`پیشہ: ${profile.occupation.replace('_', ' ')}`);
+      if (profile.landAcres) parts.push(`${profile.landAcres} ایکڑ زمین`);
+      if (profile.age) parts.push(`عمر ${profile.age} سال`);
+      if (profile.province) parts.push(`صوبہ: ${profile.province}`);
+      
+      if (parts.length > 0) {
+        return `شکریہ! میں نے نوٹ کر لیا ہے:\n${parts.map(p => `• ${p}`).join('\n')}\n\nبہتر مدد کے لیے، بتائیں آپ کو کس قسم کی سہولت چاہیے؟`;
+      }
+      return "شکریہ! آپ کو کس قسم کی مدد چاہیے؟";
     }
-    if (profile.children) {
-      parts.push(`${profile.children} child${profile.children > 1 ? 'ren' : ''}`);
+    
+    // Roman Urdu responses
+    if (lang === 'roman_urdu') {
+      const parts: string[] = [];
+      if (profile.monthlyIncome) parts.push(`mahina income Rs. ${profile.monthlyIncome.toLocaleString()}`);
+      if (profile.children) parts.push(`${profile.children} bachay`);
+      if (profile.occupation) parts.push(`kaam: ${profile.occupation.replace('_', ' ')}`);
+      if (profile.landAcres) parts.push(`${profile.landAcres} acres zameen`);
+      if (profile.age) parts.push(`umar ${profile.age} saal`);
+      if (profile.province) parts.push(`suba: ${profile.province}`);
+      
+      if (parts.length > 0) {
+        return `Shukriya! Main ne note kar liya hai:\n${parts.map(p => `• ${p}`).join('\n')}\n\nBehtar madad ke liye, batayein aap ko kis qisam ki sahulat chahiye?`;
+      }
+      return "Shukriya! Aap ko kis qisam ki madad chahiye?";
     }
-    if (profile.occupation) {
-      parts.push(`work as a ${profile.occupation.replace('_', ' ')}`);
-    }
-    if (profile.landAcres) {
-      parts.push(`${profile.landAcres} acres of land`);
-    }
-    if (profile.age) {
-      parts.push(`age ${profile.age}`);
-    }
-    if (profile.province) {
-      parts.push(`live in ${profile.province}`);
-    }
+    
+    // English responses (default)
+    const parts: string[] = [];
+    if (profile.monthlyIncome) parts.push(`monthly income of Rs. ${profile.monthlyIncome.toLocaleString()}`);
+    if (profile.children) parts.push(`${profile.children} child${profile.children > 1 ? 'ren' : ''}`);
+    if (profile.occupation) parts.push(`work as a ${profile.occupation.replace('_', ' ')}`);
+    if (profile.landAcres) parts.push(`${profile.landAcres} acres of land`);
+    if (profile.age) parts.push(`age ${profile.age}`);
+    if (profile.province) parts.push(`live in ${profile.province}`);
     
     if (parts.length > 0) {
       return `Thanks for sharing. I've noted that you ${parts.join(', ')}.\n\nTo give you the best recommendations, I need to understand what kind of support you're looking for.`;
@@ -561,6 +605,23 @@ export default function AssistantPage() {
                 </div>
               </div>
             )}
+            
+            {/* Detected Language */}
+            <div className="mt-4 pt-4 border-t border-navy-100">
+              <p className="text-xs font-medium text-navy-500 mb-2">Chat Language:</p>
+              <div className="flex items-center gap-2">
+                <span className={`px-2 py-0.5 text-xs rounded-full border ${
+                  detectedLanguage === 'urdu' ? 'bg-green-50 text-green-700 border-green-200' :
+                  detectedLanguage === 'roman_urdu' ? 'bg-blue-50 text-blue-700 border-blue-200' :
+                  'bg-gray-50 text-gray-700 border-gray-200'
+                }`}>
+                  {detectedLanguage === 'urdu' ? 'اردو (Urdu)' :
+                   detectedLanguage === 'roman_urdu' ? 'Roman Urdu' :
+                   'English'}
+                </span>
+              </div>
+              <p className="text-xs text-navy-400 mt-1">I'll respond in your language</p>
+            </div>
             
             <div className="mt-4 pt-4 border-t border-navy-100">
               <p className="text-xs text-navy-500">

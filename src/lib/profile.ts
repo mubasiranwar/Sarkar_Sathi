@@ -71,13 +71,25 @@ export function extractProfileFromMessage(message: string, currentProfile: UserP
     updates.landAcres = parseFloat(landMatch[1]);
   }
 
-  // Extract age
-  const ageMatch = message.match(/(\d+)\s*(years old|saal|age|umar)/i);
-  if (ageMatch) {
-    const age = parseInt(ageMatch[1]);
-    if (age > 0 && age < 120) {
-      updates.age = age;
-    }
+  // Extract age - more flexible patterns
+  // Pattern 1: "32 years old", "32 saal", "32 years"
+  const agePattern1 = message.match(/(\d+)\s*(years?\s*old|saal|years?)/i);
+  // Pattern 2: "age is 32", "umer 32", "age 32"
+  const agePattern2 = message.match(/(age|umer|umar)\s*(?:is|hai|of)?\s*(\d+)/i);
+  // Pattern 3: "I am 32", "I'm 32", "main 32"
+  const agePattern3 = message.match(/(?:i\s*(?:'m|am)|main|hun)\s+(\d+)/i);
+  
+  let extractedAge: number | undefined;
+  if (agePattern1) {
+    extractedAge = parseInt(agePattern1[1]);
+  } else if (agePattern2) {
+    extractedAge = parseInt(agePattern2[2]);
+  } else if (agePattern3) {
+    extractedAge = parseInt(agePattern3[1]);
+  }
+  
+  if (extractedAge && extractedAge > 0 && extractedAge < 120) {
+    updates.age = extractedAge;
   }
 
   // Extract gender
@@ -150,11 +162,42 @@ export function getMissingInformation(profile: UserProfile): string[] {
 }
 
 // Generate next question based on missing info
-export function getNextQuestion(profile: UserProfile, missingInfo: string[]): string | null {
+export function getNextQuestion(
+  profile: UserProfile, 
+  missingInfo: string[],
+  language: 'urdu' | 'roman_urdu' | 'english' = 'english'
+): string | null {
   if (missingInfo.length === 0) return null;
 
   const nextMissing = missingInfo[0];
 
+  // Urdu questions
+  if (language === 'urdu') {
+    switch (nextMissing) {
+      case 'province': return 'آپ کس صوبے میں رہتے ہیں؟';
+      case 'age': return 'آپ کی عمر کیا ہے؟';
+      case 'income_or_occupation':
+        if (!profile.occupation) return 'آپ کا کیا کام ہے؟';
+        return 'آپ کی تقریباً ماہانہ آمدن کیا ہے؟';
+      case 'needs': return 'آپ کو کس قسم کی مدد چاہیے؟ (صحت، تعلیم، کاروبار، مالی مدد، وغیرہ)';
+      default: return null;
+    }
+  }
+
+  // Roman Urdu questions
+  if (language === 'roman_urdu') {
+    switch (nextMissing) {
+      case 'province': return 'Aap kis subay mein rehte hain?';
+      case 'age': return 'Aap ki umar kya hai?';
+      case 'income_or_occupation':
+        if (!profile.occupation) return 'Aap ka kya kaam hai?';
+        return 'Aap ki taqreeban mahina income kya hai?';
+      case 'needs': return 'Aap ko kis qisam ki madad chahiye? (sehat, taleem, karobar, maali madad, waghera)';
+      default: return null;
+    }
+  }
+
+  // English questions (default)
   switch (nextMissing) {
     case 'province':
       return 'Which province do you currently live in?';
@@ -170,6 +213,39 @@ export function getNextQuestion(profile: UserProfile, missingInfo: string[]): st
     default:
       return null;
   }
+}
+
+// Detect language of the message
+export function detectLanguage(message: string): 'urdu' | 'roman_urdu' | 'english' {
+  // Check for Urdu script (Unicode range for Urdu/Arabic characters)
+  const urduScriptRegex = /[\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF\uFB50-\uFDFF\uFE70-\uFEFF]/;
+  
+  if (urduScriptRegex.test(message)) {
+    return 'urdu';
+  }
+  
+  // Check for Roman Urdu keywords
+  const romanUrduKeywords = [
+    'mera', 'meri', 'hai', 'hain', 'kya', 'kahan', 'kab', 'kaun',
+    'mujhe', 'tumhe', 'aap', 'main', 'hum', 'woh', 'yeh',
+    'kar', 'karna', 'chahiye', 'sakta', 'sakti', 'tha', 'thi', 'the',
+    'aur', 'ya', 'lekin', 'kyunke', 'isliye', 'agar', 'toh',
+    'paisa', 'rupay', 'kamai', 'nokri', 'kaam', 'business',
+    'bachay', 'bache', 'beti', 'beta', 'biwi', 'shohar',
+    'zaroorat', 'madad', 'sahulat', 'sehat', 'taleem'
+  ];
+  
+  const lowerMessage = message.toLowerCase();
+  const romanUrduCount = romanUrduKeywords.filter(keyword => 
+    lowerMessage.includes(keyword)
+  ).length;
+  
+  // If 2 or more Roman Urdu keywords detected, consider it Roman Urdu
+  if (romanUrduCount >= 2) {
+    return 'roman_urdu';
+  }
+  
+  return 'english';
 }
 
 // Format profile for display

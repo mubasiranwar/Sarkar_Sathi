@@ -267,17 +267,25 @@ CRITICAL RULES:
 4. Never make up eligibility criteria, benefit amounts, or procedures not in the data.
 5. If verified information is unavailable, say "This information needs verification."
 
+LANGUAGE HANDLING:
+- If user writes in Urdu (اردو), respond in Urdu
+- If user writes in Roman Urdu (e.g., "mera naam hai", "mujhe madad chahiye"), respond in Roman Urdu
+- If user writes in English, respond in English
+- Match the user's language preference throughout the conversation
+- Program names can remain in their original form (e.g., "Benazir Kafaalat", "بینظیر کفالت")
+
 CONVERSATION STATE:
 - Track what the user has already told you
 - Never repeat questions for information already provided
 - Build on previous information
+- If user provided age/income/children/etc., NEVER ask for it again
 
 RESPONSE FORMAT (valid JSON only):
 {
   "profileUpdates": {"field": "value"},
-  "answer": "Your response",
+  "answer": "Your response in user's language",
   "intent": "find_programs|program_details|check_eligibility|documents|application_process|health_support|education_support|financial_support|agriculture_support|business_support|general_question",
-  "followUpQuestion": "Next question or null",
+  "followUpQuestion": "Next question or null (in user's language)",
   "recommendedPrograms": ["program-id-1"],
   "eligibilityStatus": "likely_match|potential_match|needs_more_information|not_a_match",
   "missingInformation": ["province"],
@@ -339,7 +347,7 @@ Verified: ${p.source.verifiedAt}`).join('\n\n---\n\n');
 }
 
 export function createChatHandler() {
-  return async function handleChat(messages, profile = {}) {
+  return async function handleChat(messages, profile = {}, language = 'english') {
     const apiKey = process.env.QWEN_API_KEY;
     const model = process.env.QWEN_MODEL || 'Qwen/Qwen3-Max';
     const baseUrl = process.env.QWEN_BASE_URL || 'https://api-inference.modelscope.ai/v1';
@@ -354,7 +362,13 @@ export function createChatHandler() {
     
     const client = new OpenAI({ apiKey, baseURL: baseUrl });
     
-    const systemMessage = `${SYSTEM_PROMPT}\n\n=== CURRENT USER PROFILE ===\n${JSON.stringify(profile, null, 2)}\n=== END PROFILE ===\n\n=== VERIFIED PROGRAM DATA ===\n${programContext}\n=== END PROGRAMS ===\n\nUse ONLY the programs listed above. Reference them by their ID.`;
+    const languageInstruction = language === 'urdu' 
+      ? '\n\nIMPORTANT: User is writing in Urdu. Respond in Urdu (اردو).'
+      : language === 'roman_urdu'
+      ? '\n\nIMPORTANT: User is writing in Roman Urdu. Respond in Roman Urdu (e.g., "aap ke liye yeh program hai").'
+      : '\n\nUser is writing in English. Respond in English.';
+    
+    const systemMessage = `${SYSTEM_PROMPT}${languageInstruction}\n\n=== CURRENT USER PROFILE ===\n${JSON.stringify(profile, null, 2)}\n=== END PROFILE ===\n\n=== VERIFIED PROGRAM DATA ===\n${programContext}\n=== END PROGRAMS ===\n\nUse ONLY the programs listed above. Reference them by their ID.`;
     
     const completion = await client.chat.completions.create({
       model,
