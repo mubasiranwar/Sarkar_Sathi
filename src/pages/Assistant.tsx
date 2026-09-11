@@ -266,7 +266,7 @@ export default function AssistantPage() {
       
       if (topRecommendations.length > 0) {
         recommendedProgramIds = topRecommendations.map(r => r.programId);
-        responseContent = generateRecommendationResponse(updatedProfile, topRecommendations, missingInfo);
+        responseContent = generateRecommendationResponse(updatedProfile, topRecommendations, missingInfo, currentLang);
         
         if (missingInfo.length > 0) {
           const nextQuestion = getNextQuestion(updatedProfile, missingInfo, currentLang);
@@ -510,39 +510,61 @@ export default function AssistantPage() {
   const generateRecommendationResponse = (
     profile: UserProfile,
     recommendations: ReturnType<typeof getRecommendedPrograms>,
-    missingInfo: string[]
+    missingInfo: string[],
+    language: 'urdu' | 'roman_urdu' | 'english'
   ): string => {
     const parts: string[] = [];
+    const isUrdu = language === 'urdu';
+    const isRomanUrdu = language === 'roman_urdu';
+
+    const statusText = (status: Parameters<typeof getEligibilityStatusText>[0]) => {
+      if (isUrdu) {
+        if (status === 'likely_match') return 'ممکنہ طور پر اہل';
+        if (status === 'potential_match') return 'ممکنہ مطابقت';
+        if (status === 'needs_more_information') return 'مزید معلومات درکار ہیں';
+        return 'مزید تصدیق درکار ہے';
+      }
+      if (isRomanUrdu) {
+        if (status === 'likely_match') return 'Mumkin hai aap eligible hon';
+        if (status === 'potential_match') return 'Mumkinah mutabiqat';
+        if (status === 'needs_more_information') return 'Mazeed maloomat darkar hai';
+        return 'Mazeed tasdeeq darkar hai';
+      }
+      return getEligibilityStatusText(status);
+    };
     
     // Summary of what we know
-    parts.push("**Based on what you've told me:**\n");
-    if (profile.monthlyIncome) parts.push(`• Monthly income: Rs. ${profile.monthlyIncome.toLocaleString()}`);
-    if (profile.children) parts.push(`• Children: ${profile.children}`);
-    if (profile.occupation) parts.push(`• Occupation: ${profile.occupation.replace('_', ' ')}`);
-    if (profile.landAcres) parts.push(`• Land: ${profile.landAcres} acres`);
-    if (profile.age) parts.push(`• Age: ${profile.age}`);
-    if (profile.province) parts.push(`• Province: ${profile.province}`);
-    if (profile.needs && profile.needs.length > 0) parts.push(`• Looking for: ${profile.needs.join(', ')}`);
+    parts.push(isUrdu ? '**آپ کی فراہم کردہ معلومات کی بنیاد پر:**\n' : isRomanUrdu ? '**Aap ki di hui maloomat ki bunyaad par:**\n' : "**Based on what you've told me:**\n");
+    if (profile.monthlyIncome) parts.push(`${isUrdu ? '• ماہانہ آمدن' : isRomanUrdu ? '• Mahina income' : '• Monthly income'}: Rs. ${profile.monthlyIncome.toLocaleString()}`);
+    if (profile.children) parts.push(`${isUrdu ? '• بچے' : isRomanUrdu ? '• Bachay' : '• Children'}: ${profile.children}`);
+    if (profile.occupation) parts.push(`${isUrdu ? '• پیشہ' : isRomanUrdu ? '• Kaam' : '• Occupation'}: ${profile.occupation.replace('_', ' ')}`);
+    if (profile.landAcres) parts.push(`${isUrdu ? '• زمین' : isRomanUrdu ? '• Zameen' : '• Land'}: ${profile.landAcres} acres`);
+    if (profile.age) parts.push(`${isUrdu ? '• عمر' : isRomanUrdu ? '• Umar' : '• Age'}: ${profile.age}`);
+    if (profile.province) parts.push(`${isUrdu ? '• صوبہ' : isRomanUrdu ? '• Suba' : '• Province'}: ${profile.province}`);
+    if (profile.needs && profile.needs.length > 0) parts.push(`${isUrdu ? '• مطلوبہ مدد' : isRomanUrdu ? '• Darkar madad' : '• Looking for'}: ${profile.needs.join(', ')}`);
     
-    parts.push("\n\n**Programs that may be relevant:**\n");
+    parts.push(isUrdu ? '\n\n**متعلقہ پروگرامز:**\n' : isRomanUrdu ? '\n\n**Mumkinah mutaliqa programs:**\n' : '\n\n**Programs that may be relevant:**\n');
     
     recommendations.forEach((rec, index) => {
       const program = verifiedPrograms.find(p => p.id === rec.programId);
       if (!program) return;
       
-      const statusText = getEligibilityStatusText(rec.eligibilityStatus);
-      parts.push(`\n**${index + 1}. ${program.name}**`);
-      parts.push(`_Status: ${statusText}_`);
+      parts.push(`\n**${index + 1}. ${isUrdu ? program.nameUrdu || program.name : program.name}**`);
+      parts.push(`_${isUrdu ? 'اہلیت کی حالت' : isRomanUrdu ? 'Eligibility status' : 'Status'}: ${statusText(rec.eligibilityStatus)}_`);
       
       if (rec.reasons.length > 0) {
-        parts.push(`\nWhy it may be relevant:`);
-        rec.reasons.slice(0, 2).forEach(reason => {
-          parts.push(`• ${reason}`);
-        });
+        if (isUrdu) {
+          parts.push('\nیہ پروگرام آپ کی فراہم کردہ معلومات کی بنیاد پر ممکنہ طور پر متعلقہ ہے۔');
+        } else if (isRomanUrdu) {
+          parts.push('\nYeh program aap ki di hui maloomat ki bunyaad par mumkinah tor par mutaliqa hai.');
+        } else {
+          parts.push('\nWhy it may be relevant:');
+          rec.reasons.slice(0, 2).forEach(reason => parts.push(`• ${reason}`));
+        }
       }
       
       if (rec.missingInformation.length > 0) {
-        parts.push(`\n_Missing information: ${rec.missingInformation.join(', ')}_`);
+        parts.push(`\n_${isUrdu ? 'مطلوبہ معلومات' : isRomanUrdu ? 'Darkar maloomat' : 'Missing information'}: ${rec.missingInformation.join(', ')}_`);
       }
       
       parts.push(`\n[View official source →](${program.source.url})`);
